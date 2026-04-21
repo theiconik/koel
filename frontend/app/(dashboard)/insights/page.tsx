@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import TopBar from "@/components/layout/TopBar";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
@@ -136,10 +137,10 @@ export default function InsightsPage() {
                 ) : (
                   <div key={i} className="flex gap-3">
                     <div
-                      className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] font-semibold mt-1"
-                      style={{ background: "var(--color-stone-200)", color: "var(--color-midnight)" }}
+                      className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center mt-1 overflow-hidden"
+                      style={{ background: "var(--color-stone-200)" }}
                     >
-                      k
+                      <Image src="/koel-logo.svg" alt="" width={18} height={18} />
                     </div>
                     <div
                       className="max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed border"
@@ -184,7 +185,7 @@ export default function InsightsPage() {
             style={{ borderColor: "rgba(26,26,46,0.08)", background: "var(--color-cream)" }}
           >
             <div
-              className="max-w-[720px] mx-auto flex gap-2.5 items-end rounded-2xl px-4 py-2.5 border"
+              className="max-w-[720px] mx-auto flex gap-2.5 items-center rounded-[14px] px-4 py-1.5 border focus-within:[box-shadow:none]"
               style={{
                 background: "var(--color-bg-raised)",
                 borderColor: "rgba(26,26,46,0.15)",
@@ -202,19 +203,20 @@ export default function InsightsPage() {
                 }}
                 placeholder={selected ? `ask about "${selected.title}"…` : "select a survey…"}
                 rows={1}
-                className="flex-1 border-none outline-none resize-none text-[15px] leading-relaxed py-1.5"
+                className="flex-1 border-none outline-none resize-none text-[15px] leading-[1.4] py-0 my-0 block"
                 style={{
                   fontFamily: "var(--font-body)",
                   color: "var(--color-midnight)",
                   background: "transparent",
-                  minHeight: 24,
+                  minHeight: 22,
                   maxHeight: 120,
+                  boxShadow: "none",
                 }}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || sending}
-                className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0 transition-colors"
+                className="w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 transition-colors"
                 style={{
                   background: input.trim() ? "var(--color-midnight)" : "rgba(26,26,46,0.1)",
                   color: input.trim() ? "var(--color-fg-inverse)" : "var(--color-fg3)",

@@ -103,6 +103,17 @@
   --duration-slow: 400ms;
 }
 
+/* Shorthand aliases for inline styles (dashboard uses var(--midnight) etc.) */
+:root {
+  --midnight: var(--color-midnight);
+  --forest: var(--color-forest);
+  --cream: var(--color-cream);
+  --mango: var(--color-mango);
+  --danger: var(--color-danger);
+  --stone-500: var(--color-stone-500);
+  --success-bg: var(--color-success-bg);
+}
+
 /* ── Base styles ── */
 html, body {
   background-color: var(--color-cream);

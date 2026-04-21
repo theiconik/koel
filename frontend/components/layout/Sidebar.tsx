@@ -27,9 +27,9 @@ export default function Sidebar() {
       <AppBrand />
       <div className="h-3" />
 
-      <Link href="/surveys/new">
-        <Button variant="midnight" className="w-full justify-start gap-2 mx-1 mb-3.5">
-          <Icon name="plus" size={16} />
+      <Link href="/surveys/new" className="block mb-3.5">
+        <Button variant="midnight" className="w-full justify-start gap-2.5 !px-3.5 !py-3">
+          <Icon name="plus" size={18} />
           New survey
         </Button>
       </Link>
@@ -41,7 +41,7 @@ export default function Sidebar() {
         return (
           <Link key={item.href} href={item.href}>
             <button
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm text-left transition-colors"
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-md text-sm text-left transition-colors"
               style={{
                 fontFamily: "var(--font-body)",
                 fontWeight: active ? 600 : 500,

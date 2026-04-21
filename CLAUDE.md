@@ -106,7 +106,19 @@ Reference UI patterns live in `koel-ui-design-system/ui_kits/app/Components.jsx`
 - Using `@clerk/nextjs` v7 with Next.js 16.
 - Auth guard lives in `proxy.ts` (Next.js 16 renamed `middleware.ts` → `proxy.ts`).
 - **Do not** use `auth.protect()` or `redirectToSignIn()` from Clerk — both route through Clerk's hosted account portal (external URL), which redirects back to `/` causing a 307 loop.
-- Correct pattern: call `await auth()` to get `userId`, then use `NextResponse.redirect(new URL('/sign-in', req.url))` directly.
+- Correct pattern: wrap with `clerkMiddleware`, call `await auth()` to get `userId`, redirect via `NextResponse.redirect(new URL('/sign-in', req.url))`.
+
+## Next.js 16 note
+
+`frontend/AGENTS.md` warns: this Next.js version has breaking changes vs training data. Before writing any routing, middleware, or data-fetching code, read the relevant guide in `frontend/node_modules/next/dist/docs/`.
+
+## CSS variable consistency
+
+Design tokens have two spellings in the codebase — always use the `--color-*` prefixed form (e.g. `--color-midnight`, `--color-mango`). The un-prefixed variants (`--midnight`, `--stone-500`) exist in older code and should be replaced on touch.
+
+## Server vs client components
+
+Dashboard pages that use React state, browser hooks, or Clerk's `useUser()`/`useClerk()` must have `"use client"` at the top. Server components (layouts, pages that only pass props down) have no directive. Data functions in `lib/data/index.ts` are server-safe async functions — do not import them into client components directly; go through hooks.
 
 ## Claude automation hook
 
