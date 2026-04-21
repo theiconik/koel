@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* ── Fonts ── */
+@font-face {
+  font-family: 'Absans';
+  src: url('/fonts/Absans-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-ExtraLight.ttf') format('truetype'); font-weight: 200; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-Light.ttf')      format('truetype'); font-weight: 300; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-Regular.ttf')    format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-Medium.ttf')     format('truetype'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-SemiBold.ttf')   format('truetype'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-Bold.ttf')       format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('/fonts/Manrope-ExtraBold.ttf')  format('truetype'); font-weight: 800; font-display: swap; }
+
+/* ── Design Tokens ── */
+@theme inline {
+  /* Font families */
+  --font-display: 'Absans', 'Times New Roman', serif;
+  --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Core palette */
+  --color-midnight: #1A1A2E;
+  --color-mango: #E8B04B;
+  --color-mango-hover: #D89E34;
+  --color-mango-press: #C48B23;
+  --color-forest: #4A7C59;
+  --color-coral: #F08A63;
+  --color-cream: #FAF7F2;
+  --color-ink: #2B2B2B;
+
+  /* Stone neutrals */
+  --color-stone-50:  #FAF7F2;
+  --color-stone-100: #F2EEE6;
+  --color-stone-200: #E8E2D5;
+  --color-stone-300: #D4CCBB;
+  --color-stone-400: #A79E8C;
+  --color-stone-500: #6F685B;
+  --color-stone-600: #4A4538;
+  --color-stone-700: #2F2C26;
+  --color-stone-800: #1F1D1A;
+
+  /* Semantic surfaces */
+  --color-bg: #FAF7F2;
+  --color-bg-raised: #FFFFFF;
+  --color-bg-sunken: #F2EEE6;
+  --color-bg-inverse: #1A1A2E;
+
+  /* Semantic foreground */
+  --color-fg1: #2B2B2B;
+  --color-fg2: #4A4538;
+  --color-fg3: #6F685B;
+  --color-fg4: #A79E8C;
+  --color-fg-inverse: #FAF7F2;
+
+  /* States */
+  --color-success: #4A7C59;
+  --color-success-bg: #EAF1EC;
+  --color-danger: #B3412B;
+  --color-danger-bg: #F7E6E0;
+  --color-warning: #C98A1E;
+  --color-warning-bg: #FBF2DE;
+
+  /* Border */
+  --color-border: rgba(26,26,46,0.10);
+  --color-border-strong: rgba(26,26,46,0.18);
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* Spacing (4px base — s1…s10) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 24px;
+  --spacing-6: 32px;
+  --spacing-7: 48px;
+  --spacing-8: 64px;
+  --spacing-9: 96px;
+  --spacing-10: 128px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(26,26,46,0.04);
+  --shadow-sm: 0 2px 8px rgba(26,26,46,0.06);
+  --shadow-md: 0 8px 24px rgba(26,26,46,0.08);
+  --shadow-lg: 0 20px 48px rgba(26,26,46,0.12);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22,1,0.36,1);
+  --ease-in-out: cubic-bezier(0.65,0,0.35,1);
+  --duration-fast: 120ms;
+  --duration-base: 220ms;
+  --duration-slow: 400ms;
+}
+
+/* ── Base styles ── */
+html, body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  height: 100%;
+}
+
+/* Focus ring — mango at 35% */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(232,176,75,0.35);
+}

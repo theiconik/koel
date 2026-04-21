@@ -15,21 +15,15 @@ AI voice-powered survey platform. Respondents speak instead of clicking options;
 
 ## Commands
 
+All commands run from `frontend/`:
+
 ```bash
-# Install
-cd frontend && npm install
-
-# Dev server
-npm run dev
-
-# Type check
-npm run typecheck
-
-# Lint
-npm run lint
-
-# Build
-npm run build
+cd frontend
+npm install        # install deps
+npm run dev        # dev server → http://localhost:3000
+npm run build      # production build (verifier check — must pass clean)
+npm run typecheck  # type errors only
+npm run lint       # eslint
 ```
 
 ## Architecture
@@ -37,27 +31,27 @@ npm run build
 ### Frontend structure
 
 ```
-frontend/
-  app/                   # Next.js App Router pages
-    (auth)/              # Clerk sign-in / sign-up routes
-    (dashboard)/         # Protected app routes
-      dashboard/
-      surveys/
-      responses/
-      insights/
-      settings/
-  components/            # UI components (dumb, no business logic)
-    ui/                  # Primitives: Button, Input, Card, StatusChip…
-    layout/              # Sidebar, TopBar, AppBrand
+frontend/                         # Next.js 16 project root
+  proxy.ts                        # Clerk auth guard (Next.js 16 middleware convention)
+  app/
+    (auth)/                       # Public: /sign-in, /sign-up
+    (dashboard)/                  # Protected — all routes get Sidebar layout
+      page.tsx                    # / → Dashboard Home
+      surveys/new/page.tsx        # /surveys/new
+      surveys/[id]/page.tsx       # /surveys/:id (detail + responses)
+      insights/page.tsx           # /insights (mocked error chat)
+      settings/page.tsx           # /settings (Clerk profile + UI-only sections)
+  components/
+    ui/                           # Button, Icon, StatusChip, StatCard, SurveyCard
+    layout/                       # AppBrand, Sidebar, TopBar
   lib/
-    data/                # All data access (mock or real API)
-      mock/              # Static mock fixtures
-      api/               # Real API client (disabled when NEXT_PUBLIC_USE_MOCK=true)
-      index.ts           # Re-exports; consumers import from here, never from mock/ or api/ directly
-    hooks/               # React hooks (usesurveys, useResponses, etc.)
-    types/               # Shared TypeScript types
+    data/
+      mock/                       # surveys.ts, responses.ts, stats.ts
+      index.ts                    # toggle: mock vs real API via NEXT_PUBLIC_USE_MOCK
+    hooks/                        # useSurveys, useSurvey, useStats
+    types/index.ts                # Survey, Response, Theme, DashboardStats, InsightMessage
   public/
-    fonts/               # Absans + Manrope (copied from design system)
+    fonts/                        # Absans + Manrope
     koel-logo.svg
 ```
 
@@ -88,11 +82,31 @@ Source of truth for all visual decisions. Read `koel-ui-design-system/README.md`
 
 Reference UI patterns live in `koel-ui-design-system/ui_kits/app/Components.jsx` — use as implementation guide for: Sidebar, AppTopBar, SurveyCard, ResponseCard, StatusChip, InsightsView, SettingsView.
 
+## Current status
+
+**Frontend v1 — complete.** All routes built and `npm run build` passes clean.
+
+| Route | Status |
+|-------|--------|
+| `/` — Dashboard Home | ✓ built |
+| `/surveys/new` — New Survey | ✓ built (Preview disabled) |
+| `/surveys/[id]` — Survey Detail | ✓ built |
+| `/insights` — Insights chat | ✓ built (mocked error) |
+| `/settings` — Settings | ✓ built (Clerk profile live) |
+| `/sign-in`, `/sign-up` | ✓ Clerk-hosted |
+
 ## Deferred / out of scope (this phase)
 
-- **Respondent voice session** (`/respond/[id]`): standalone page, no sidebar, AI asks questions via voice. Design not finalised — mark as TODO, do not build.
-- **Preview button** on New Survey builder: disabled (`disabled` attr, greyed out). No preview page.
-- **Public survey link**: generate a mock URL string only. No functional unauthenticated route yet.
+- **Respondent voice session** (`/respond/[id]`): standalone page, no sidebar, AI asks questions via voice. Design not finalised — do not build yet.
+- **Insights AI**: currently returns `"Sorry, we are facing some issues. Please try again later."` — real LLM wired in backend phase.
+- **Public survey link**: mock URL string only. No unauthenticated route.
+
+## Known Clerk quirks
+
+- Using `@clerk/nextjs` v7 with Next.js 16.
+- Auth guard lives in `proxy.ts` (Next.js 16 renamed `middleware.ts` → `proxy.ts`).
+- **Do not** use `auth.protect()` or `redirectToSignIn()` from Clerk — both route through Clerk's hosted account portal (external URL), which redirects back to `/` causing a 307 loop.
+- Correct pattern: call `await auth()` to get `userId`, then use `NextResponse.redirect(new URL('/sign-in', req.url))` directly.
 
 ## Claude automation hook
 

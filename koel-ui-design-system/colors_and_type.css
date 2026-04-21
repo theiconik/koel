@@ -1,0 +1,231 @@
+/* Koel Design System — Tokens
+   Base type + color styles, plus semantic element styles.
+   Import this file at the top of any Koel design.
+*/
+
+/* ---------- Fonts ---------- */
+@font-face {
+  font-family: 'Absans';
+  src: url('./fonts/Absans-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-ExtraLight.ttf') format('truetype'); font-weight: 200; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-Light.ttf')      format('truetype'); font-weight: 300; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-Regular.ttf')    format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-Medium.ttf')     format('truetype'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-SemiBold.ttf')   format('truetype'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-Bold.ttf')       format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./fonts/Manrope-ExtraBold.ttf')  format('truetype'); font-weight: 800; font-display: swap; }
+
+/* ---------- Tokens ---------- */
+:root {
+  /* Type families */
+  --font-display: 'Absans', 'Times New Roman', serif;   /* geometric display — headlines only */
+  --font-body:    'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Core palette (Songbird) */
+  --midnight:    #1A1A2E;  /* primary — headers, text, deep UI */
+  --mango:       #E8B04B;  /* accent — CTAs, brand moments */
+  --forest:      #4A7C59;  /* secondary — success, sparingly */
+  --coral:       #F08A63;  /* logo accent — voice/sound cue */
+  --cream:       #FAF7F2;  /* warm off-white background */
+  --ink:         #2B2B2B;  /* softer than pure black */
+
+  /* Neutrals — warm, biased toward cream */
+  --stone-50:   #FAF7F2;
+  --stone-100:  #F2EEE6;
+  --stone-200:  #E8E2D5;
+  --stone-300:  #D4CCBB;
+  --stone-400:  #A79E8C;
+  --stone-500:  #6F685B;
+  --stone-600:  #4A4538;
+  --stone-700:  #2F2C26;
+  --stone-800:  #1F1D1A;
+
+  /* Semantic surfaces */
+  --bg:          var(--cream);
+  --bg-raised:   #FFFFFF;
+  --bg-sunken:   var(--stone-100);
+  --bg-inverse:  var(--midnight);
+
+  /* Semantic foreground */
+  --fg1:         var(--ink);          /* primary text */
+  --fg2:         var(--stone-600);    /* secondary / body-dim */
+  --fg3:         var(--stone-500);    /* tertiary / meta */
+  --fg4:         var(--stone-400);    /* hints, disabled */
+  --fg-inverse:  var(--cream);
+
+  /* Semantic accent */
+  --accent:         var(--mango);
+  --accent-ink:     var(--midnight);  /* text color on mango */
+  --accent-hover:   #D89E34;
+  --accent-press:   #C48B23;
+
+  /* States */
+  --success:     var(--forest);
+  --success-bg:  #EAF1EC;
+  --danger:      #B3412B;
+  --danger-bg:   #F7E6E0;
+  --warning:     #C98A1E;
+  --warning-bg:  #FBF2DE;
+
+  /* Borders */
+  --border:        rgba(26, 26, 46, 0.10);
+  --border-strong: rgba(26, 26, 46, 0.18);
+  --border-mango:  var(--mango);
+
+  /* Radii — restrained, editorial */
+  --r-xs:  4px;
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  16px;
+  --r-xl:  24px;
+  --r-pill: 999px;
+
+  /* Spacing scale (4px base) */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  24px;
+  --s-6:  32px;
+  --s-7:  48px;
+  --s-8:  64px;
+  --s-9:  96px;
+  --s-10: 128px;
+
+  /* Shadows — minimal, warm */
+  --shadow-xs:  0 1px 2px rgba(26, 26, 46, 0.04);
+  --shadow-sm:  0 2px 8px rgba(26, 26, 46, 0.06);
+  --shadow-md:  0 8px 24px rgba(26, 26, 46, 0.08);
+  --shadow-lg:  0 20px 48px rgba(26, 26, 46, 0.12);
+  --focus-ring: 0 0 0 3px rgba(232, 176, 75, 0.35);
+
+  /* Motion */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:    120ms;
+  --dur-base:    220ms;
+  --dur-slow:    400ms;
+
+  /* Type sizes — editorial scale */
+  --fs-display:  clamp(48px, 7.2vw, 96px);
+  --fs-h1:       clamp(40px, 5.2vw, 64px);
+  --fs-h2:       clamp(32px, 3.6vw, 44px);
+  --fs-h3:       28px;
+  --fs-h4:       22px;
+  --fs-lead:     20px;
+  --fs-body:     16px;
+  --fs-small:    14px;
+  --fs-micro:    12px;
+
+  --lh-tight:    1.04;
+  --lh-snug:     1.2;
+  --lh-normal:   1.5;
+  --lh-relaxed:  1.7;
+}
+
+/* ---------- Semantic element styles ---------- */
+html, body {
+  background: var(--bg);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.koel-display, h1.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-display);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  color: var(--midnight);
+}
+
+h1, .koel-h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+  color: var(--midnight);
+}
+
+h2, .koel-h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.01em;
+  color: var(--midnight);
+}
+
+h3, .koel-h3 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.005em;
+  color: var(--midnight);
+}
+
+h4, .koel-h4 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-h4);
+  line-height: var(--lh-snug);
+  color: var(--midnight);
+}
+
+.koel-lead {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--fs-lead);
+  line-height: var(--lh-relaxed);
+  color: var(--fg2);
+  text-wrap: pretty;
+}
+
+p, .koel-p {
+  font-size: var(--fs-body);
+  line-height: var(--lh-relaxed);
+  color: var(--fg1);
+  text-wrap: pretty;
+}
+
+.koel-small, small {
+  font-size: var(--fs-small);
+  color: var(--fg2);
+}
+
+.koel-meta {
+  font-family: var(--font-body);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg3);
+}
+
+code, kbd, .koel-code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--stone-100);
+  padding: 0.1em 0.35em;
+  border-radius: var(--r-xs);
+  color: var(--midnight);
+}
+
+/* The wordmark — always lowercase, Absans */
+.koel-wordmark {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  text-transform: lowercase;
+  color: var(--midnight);
+}
