@@ -10,7 +10,7 @@ export default function TopBar({ title, crumbs, cta }: TopBarProps) {
   return (
     <div
       className="flex items-center justify-between px-9 py-5 border-b shrink-0"
-      style={{ background: "var(--color-cream)", borderColor: "rgba(26,26,46,0.08)" }}
+      style={{ background: "var(--color-cream)", borderColor: "var(--color-border-soft)" }}
     >
       <div>
         {crumbs && (

@@ -1,30 +1,32 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
+import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import { useSurveys } from "@/lib/hooks/useSurveys";
 import type { Survey } from "@/lib/types";
 
+type Draft = { id: string; text: string };
+const newDraft = (): Draft => ({ id: crypto.randomUUID(), text: "" });
+
 export default function NewSurveyPage() {
-  const router = useRouter();
   const { addSurvey } = useSurveys();
   const [title, setTitle] = useState("");
-  const [questions, setQuestions] = useState(["", ""]);
+  const [questions, setQuestions] = useState<Draft[]>(() => [newDraft(), newDraft()]);
   const [published, setPublished] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
 
-  function updateQuestion(idx: number, val: string) {
-    setQuestions((prev) => prev.map((q, i) => (i === idx ? val : q)));
+  function updateQuestion(id: string, val: string) {
+    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, text: val } : q)));
   }
 
   function addQuestion() {
-    setQuestions((prev) => [...prev, ""]);
+    setQuestions((prev) => [...prev, newDraft()]);
   }
 
-  function removeQuestion(idx: number) {
-    setQuestions((prev) => prev.filter((_, i) => i !== idx));
+  function removeQuestion(id: string) {
+    setQuestions((prev) => prev.filter((q) => q.id !== id));
   }
 
   function handlePublish() {
@@ -40,8 +42,8 @@ export default function NewSurveyPage() {
       avgDuration: "—",
       completionRate: "—",
       questions: questions
-        .filter((q) => q.trim())
-        .map((q, i) => ({ id: `q${i + 1}`, text: q.trim(), order: i + 1 })),
+        .filter((q) => q.text.trim())
+        .map((q, i) => ({ id: `q${i + 1}`, text: q.text.trim(), order: i + 1 })),
       createdAt: new Date().toISOString(),
       shareUrl: url,
     };
@@ -54,18 +56,7 @@ export default function NewSurveyPage() {
     <>
       <TopBar
         title="new survey"
-        crumbs={
-          <span>
-            <button
-              onClick={() => router.push("/")}
-              className="hover:underline"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontFamily: "inherit", fontSize: "inherit" }}
-            >
-              HOME
-            </button>{" "}
-            · NEW
-          </span>
-        }
+        crumbs={<Crumbs items={[{ href: "/app", label: "HOME" }, "NEW"]} />}
         cta={
           <>
             <Button variant="outline" disabled title="Preview is coming soon">
@@ -100,8 +91,8 @@ export default function NewSurveyPage() {
               style={{
                 fontFamily: "var(--font-body)",
                 color: "var(--color-midnight)",
-                borderColor: "rgba(26,26,46,0.15)",
-                background: "#fff",
+                borderColor: "var(--color-border-strong)",
+                background: "var(--color-bg-raised)",
               }}
             />
           </div>
@@ -125,7 +116,7 @@ export default function NewSurveyPage() {
 
             <div className="flex flex-col gap-3">
               {questions.map((q, i) => (
-                <div key={i} className="flex gap-3.5 items-start">
+                <div key={q.id} className="flex gap-3.5 items-start">
                   <div
                     className="text-[22px] leading-snug w-8 shrink-0"
                     style={{ fontFamily: "var(--font-display)", color: "var(--color-mango)" }}
@@ -133,21 +124,21 @@ export default function NewSurveyPage() {
                     {String(i + 1).padStart(2, "0")}
                   </div>
                   <textarea
-                    value={q}
-                    onChange={(e) => updateQuestion(i, e.target.value)}
+                    value={q.text}
+                    onChange={(e) => updateQuestion(q.id, e.target.value)}
                     rows={2}
                     placeholder="ask something open-ended…"
                     className="flex-1 px-3.5 py-2.5 text-[15px] rounded-[10px] border outline-none resize-y leading-relaxed transition-all"
                     style={{
                       fontFamily: "var(--font-body)",
                       color: "var(--color-midnight)",
-                      borderColor: "rgba(26,26,46,0.12)",
-                      background: "#fff",
+                      borderColor: "var(--color-border-medium)",
+                      background: "var(--color-bg-raised)",
                     }}
                   />
                   {questions.length > 1 && (
                     <button
-                      onClick={() => removeQuestion(i)}
+                      onClick={() => removeQuestion(q.id)}
                       className="mt-2 text-xs px-2 py-1 rounded opacity-40 hover:opacity-70 transition-opacity"
                       style={{ color: "var(--color-danger)", background: "none", border: "none", cursor: "pointer" }}
                     >
@@ -162,7 +153,7 @@ export default function NewSurveyPage() {
               onClick={addQuestion}
               className="mt-3.5 flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-[10px] border border-dashed transition-opacity hover:opacity-70"
               style={{
-                borderColor: "rgba(26,26,46,0.20)",
+                borderColor: "var(--color-border-heavy)",
                 color: "var(--color-fg2)",
                 background: "transparent",
                 fontFamily: "var(--font-body)",
@@ -197,8 +188,8 @@ export default function NewSurveyPage() {
             {title || "untitled"}
           </div>
           <div className="text-sm mt-2" style={{ color: "rgba(250,247,242,0.65)" }}>
-            {questions.filter((q) => q.trim()).length} questions
-            {" · ~"}{Math.max(1, Math.round(questions.filter((q) => q.trim()).length * 1.8))} min
+            {questions.filter((q) => q.text.trim()).length} questions
+            {" · ~"}{Math.max(1, Math.round(questions.filter((q) => q.text.trim()).length * 1.8))} min
           </div>
           <div
             className="my-4"
