@@ -8,17 +8,29 @@ export function useSurvey(id: string) {
   const [responses, setResponses] = useState<Response[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    Promise.all([getSurvey(id), getResponses(id), getThemes(id)]).then(
-      ([s, r, t]) => {
+    let cancelled = false;
+    Promise.all([getSurvey(id), getResponses(id), getThemes(id)])
+      .then(([s, r, t]) => {
+        if (cancelled) return;
         setSurvey(s);
         setResponses(r);
         setThemes(t);
-        setLoading(false);
-      }
-    );
+        setError(null);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e : new Error(String(e)));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  return { survey, responses, themes, loading };
+  return { survey, responses, themes, loading, error };
 }

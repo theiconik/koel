@@ -11,33 +11,16 @@ export default function SurveyCard({ survey, onClick }: SurveyCardProps) {
   return (
     <div
       onClick={onClick}
-      className="rounded-2xl p-[22px] border cursor-pointer transition-all duration-[200ms]"
-      style={{
-        background: "var(--color-bg-raised)",
-        borderColor: "var(--color-border)",
-        boxShadow: "var(--shadow-sm)",
-        transitionTimingFunction: "var(--ease-out)",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-md)";
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-sm)";
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
-      }}
+      className="rounded-2xl p-[22px] border border-border bg-bg-raised shadow-sm cursor-pointer card-hover"
     >
       <div className="flex justify-between items-start gap-3">
-        <div
-          className="font-semibold text-[17px] leading-snug"
-          style={{ color: "var(--color-midnight)", fontFamily: "var(--font-body)" }}
-        >
+        <div className="font-body font-semibold text-[17px] leading-snug text-midnight">
           {survey.title}
         </div>
         <StatusChip status={survey.status} />
       </div>
 
-      <div className="text-sm mt-1.5" style={{ color: "var(--color-fg3)" }}>
+      <div className="text-sm mt-1.5 text-fg3">
         {survey.description}
       </div>
 
@@ -48,16 +31,10 @@ export default function SurveyCard({ survey, onClick }: SurveyCardProps) {
           [survey.completionRate, "completion"],
         ] as [string | number, string][]).map(([val, lbl]) => (
           <div key={lbl}>
-            <div
-              className="text-[22px] leading-none"
-              style={{ fontFamily: "var(--font-display)", color: "var(--color-midnight)" }}
-            >
+            <div className="font-display text-[22px] leading-none text-midnight">
               {val}
             </div>
-            <div
-              className="text-[11px] mt-1 tracking-[0.06em] uppercase"
-              style={{ color: "var(--color-fg3)" }}
-            >
+            <div className="text-[11px] mt-1 tracking-[0.06em] uppercase text-fg3">
               {lbl}
             </div>
           </div>
