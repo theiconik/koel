@@ -46,6 +46,7 @@ export interface DashboardStats {
 }
 
 export interface InsightMessage {
+  id: string;
   role: "user" | "assistant";
   text: string;
 }

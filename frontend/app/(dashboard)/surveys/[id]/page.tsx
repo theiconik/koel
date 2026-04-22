@@ -1,7 +1,7 @@
 "use client";
 import { use, useState } from "react";
-import { useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
+import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import StatusChip from "@/components/ui/StatusChip";
@@ -12,7 +12,6 @@ type Tab = (typeof TABS)[number];
 
 export default function SurveyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
   const { survey, responses, themes, loading } = useSurvey(id);
   const [activeTab, setActiveTab] = useState<Tab>("voices");
 
@@ -30,18 +29,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
     <>
       <TopBar
         title={survey.title}
-        crumbs={
-          <span>
-            <button
-              onClick={() => router.push("/")}
-              className="hover:underline"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontFamily: "inherit", fontSize: "inherit" }}
-            >
-              HOME
-            </button>{" "}
-            · SURVEY
-          </span>
-        }
+        crumbs={<Crumbs items={[{ href: "/app", label: "HOME" }, "SURVEY"]} />}
         cta={
           <>
             <Button variant="outline" onClick={() => navigator.clipboard.writeText(survey.shareUrl)}>
@@ -66,7 +54,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
           {/* Tabs */}
           <div
             className="flex mb-4"
-            style={{ borderBottom: "1px solid rgba(26,26,46,0.08)" }}
+            style={{ borderBottom: "1px solid var(--color-border-soft)" }}
           >
             {TABS.map((tab) => (
               <button
@@ -96,17 +84,10 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
               {responses.map((r) => (
                 <div
                   key={r.id}
-                  className="rounded-2xl px-[22px] py-5 border cursor-pointer transition-all duration-[200ms]"
+                  className="rounded-2xl px-[22px] py-5 border cursor-pointer response-hover"
                   style={{
                     background: "var(--color-bg-raised)",
                     borderColor: "var(--color-border)",
-                    transitionTimingFunction: "var(--ease-out)",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-md)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
                   }}
                 >
                   <div className="flex justify-between text-xs" style={{ color: "var(--color-fg3)" }}>

@@ -1,19 +1,16 @@
 import type { SurveyStatus } from "@/lib/types";
 
-const map: Record<SurveyStatus, { bg: string; fg: string; dot: string; label: string }> = {
-  live:   { bg: "#EAF1EC", fg: "#4A7C59", dot: "#4A7C59", label: "live" },
-  draft:  { bg: "#F2EEE6", fg: "#4A4538", dot: "#A79E8C", label: "draft" },
-  closed: { bg: "#F7E6E0", fg: "#B3412B", dot: "#B3412B", label: "closed" },
+const map: Record<SurveyStatus, { cls: string; dot: string; label: string }> = {
+  live:   { cls: "bg-success-bg text-success",     dot: "bg-success", label: "live" },
+  draft:  { cls: "bg-bg-sunken text-fg2",          dot: "bg-fg4",     label: "draft" },
+  closed: { cls: "bg-danger-bg text-danger",       dot: "bg-danger",  label: "closed" },
 };
 
 export default function StatusChip({ status }: { status: SurveyStatus }) {
   const s = map[status];
   return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-      style={{ background: s.bg, color: s.fg }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
       {s.label}
     </span>
   );

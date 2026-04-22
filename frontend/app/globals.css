@@ -23,39 +23,41 @@
   --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  /* Core palette */
-  --color-midnight: #1A1A2E;
+  /* Core palette — canonical brand names */
+  --color-midnight: #1A1A2E;       /* canonical; --color-bg-inverse aliases this */
   --color-mango: #E8B04B;
   --color-mango-hover: #D89E34;
   --color-mango-press: #C48B23;
   --color-forest: #4A7C59;
   --color-coral: #F08A63;
-  --color-cream: #FAF7F2;
-  --color-ink: #2B2B2B;
+  --color-cream: #FAF7F2;          /* canonical page bg; --color-stone-50 and --color-bg alias this */
+  --color-ink: #2B2B2B;            /* canonical body text; --color-fg1 aliases this */
 
-  /* Stone neutrals */
-  --color-stone-50:  #FAF7F2;
-  --color-stone-100: #F2EEE6;
+  /* Stone neutrals — raw scale. Prefer semantic fg/bg tokens at call sites. */
+  --color-stone-50:  #FAF7F2;      /* alias of --color-cream */
+  --color-stone-100: #F2EEE6;      /* same value as --color-bg-sunken */
   --color-stone-200: #E8E2D5;
   --color-stone-300: #D4CCBB;
-  --color-stone-400: #A79E8C;
-  --color-stone-500: #6F685B;
-  --color-stone-600: #4A4538;
+  --color-stone-400: #A79E8C;      /* same value as --color-fg4 */
+  --color-stone-500: #6F685B;      /* same value as --color-fg3 */
+  --color-stone-600: #4A4538;      /* same value as --color-fg2 */
   --color-stone-700: #2F2C26;
   --color-stone-800: #1F1D1A;
 
   /* Semantic surfaces */
-  --color-bg: #FAF7F2;
+  --color-bg: #FAF7F2;             /* alias of --color-cream */
   --color-bg-raised: #FFFFFF;
   --color-bg-sunken: #F2EEE6;
-  --color-bg-inverse: #1A1A2E;
+  --color-bg-inverse: #1A1A2E;     /* alias of --color-midnight */
 
   /* Semantic foreground */
-  --color-fg1: #2B2B2B;
+  --color-fg1: #2B2B2B;            /* alias of --color-ink */
   --color-fg2: #4A4538;
   --color-fg3: #6F685B;
   --color-fg4: #A79E8C;
   --color-fg-inverse: #FAF7F2;
+  --color-fg-inverse-muted: rgba(250,247,242,0.65);
+  --color-fg-inverse-subtle: rgba(250,247,242,0.85);
 
   /* States */
   --color-success: #4A7C59;
@@ -67,7 +69,19 @@
 
   /* Border */
   --color-border: rgba(26,26,46,0.10);
+  --color-border-soft: rgba(26,26,46,0.08);
+  --color-border-medium: rgba(26,26,46,0.12);
   --color-border-strong: rgba(26,26,46,0.18);
+  --color-border-heavy: rgba(26,26,46,0.20);
+
+  /* Semantic accent surfaces */
+  --color-toggle-on: #4D6D53;
+  --color-live-fg: #1B5E3A;
+  --color-live-bg: #D8F0E4;
+  --color-danger-zone: #A44C3D;
+  --color-danger-zone-bg: #FDF2F0;
+  --color-danger-zone-border: #F1D3CF;
+  --color-success-link: #2D5A43;
 
   /* Radii */
   --radius-xs: 4px;
@@ -103,6 +117,12 @@
   --duration-slow: 400ms;
 }
 
+/* Alpha tokens — kept in :root (not @theme inline) so rgba() resolves correctly in inline styles */
+:root {
+  --color-bg-subtle: rgba(26,26,46,0.06);
+  --color-toggle-off: #D4CCBB;
+}
+
 /* ── Base styles ── */
 html, body {
   background-color: var(--color-cream);
@@ -115,8 +135,43 @@ html, body {
   height: 100%;
 }
 
+/* Card hover utilities */
+.card-hover {
+  transition: box-shadow var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.response-hover {
+  transition: box-shadow var(--duration-base) var(--ease-out);
+}
+.response-hover:hover {
+  box-shadow: var(--shadow-md);
+}
+
 /* Focus ring — mango at 35% */
 *:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(232,176,75,0.35);
+}
+
+/* Meteor animation */
+@keyframes meteor-fall {
+  0% {
+    transform: rotate(215deg) translateX(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(215deg) translateX(-600px);
+    opacity: 0;
+  }
+}
+
+.animate-meteor {
+  animation: meteor-fall linear infinite;
 }

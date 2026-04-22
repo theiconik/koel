@@ -1,6 +1,12 @@
 import { ButtonHTMLAttributes } from "react";
 
-type Variant = "primary" | "midnight" | "outline" | "ghost";
+type Variant =
+  | "primary"
+  | "midnight"
+  | "outline"
+  | "ghost"
+  | "danger"
+  | "danger-outline";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -15,6 +21,10 @@ const styles: Record<Variant, string> = {
     "bg-transparent border border-midnight/20 text-midnight hover:bg-stone-100",
   ghost:
     "bg-transparent text-midnight hover:bg-stone-100",
+  danger:
+    "bg-danger-zone text-fg-inverse hover:opacity-90 active:scale-[0.98]",
+  "danger-outline":
+    "bg-transparent border border-danger-zone text-danger-zone hover:bg-danger-zone/10",
 };
 
 export default function Button({

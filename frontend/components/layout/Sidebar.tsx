@@ -3,13 +3,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import AppBrand from "./AppBrand";
-import Icon from "@/components/ui/Icon";
+import Icon, { IconName } from "@/components/ui/Icon";
 import Button from "@/components/ui/Button";
+import NavItem from "@/components/ui/NavItem";
+import Avatar from "@/components/ui/Avatar";
 
-const navItems = [
-  { href: "/",         icon: "home"     as const, label: "Home" },
-  { href: "/insights", icon: "chart"    as const, label: "Insights" },
-  { href: "/settings", icon: "settings" as const, label: "Settings" },
+const navItems: { href: string; icon: IconName; label: string }[] = [
+  { href: "/app",          icon: "home",     label: "Home" },
+  { href: "/app/insights", icon: "chart",    label: "Insights" },
+  { href: "/app/settings", icon: "settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
@@ -21,56 +23,37 @@ export default function Sidebar() {
       className="w-60 shrink-0 flex flex-col gap-1 px-3 py-5 border-r"
       style={{
         background: "var(--color-stone-100)",
-        borderColor: "rgba(26,26,46,0.08)",
+        borderColor: "var(--color-border-soft)",
       }}
     >
       <AppBrand />
       <div className="h-3" />
 
-      <Link href="/surveys/new">
-        <Button variant="midnight" className="w-full justify-start gap-2 mx-1 mb-3.5">
-          <Icon name="plus" size={16} />
+      <Link href="/app/surveys/new" className="block mb-3.5">
+        <Button variant="midnight" className="w-full justify-start gap-2.5 !px-3.5 !py-3">
+          <Icon name="plus" size={18} />
           New survey
         </Button>
       </Link>
 
       {navItems.map((item) => {
-        const active = item.href === "/"
-          ? pathname === "/"
-          : pathname.startsWith(item.href);
+        const active =
+          item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
         return (
-          <Link key={item.href} href={item.href}>
-            <button
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm text-left transition-colors"
-              style={{
-                fontFamily: "var(--font-body)",
-                fontWeight: active ? 600 : 500,
-                color: "var(--color-midnight)",
-                background: active ? "rgba(26,26,46,0.06)" : "transparent",
-              }}
-            >
-              <span style={{ color: active ? "var(--color-midnight)" : "var(--color-fg3)" }}>
-                <Icon name={item.icon} size={18} />
-              </span>
-              {item.label}
-            </button>
-          </Link>
+          <NavItem
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            label={item.label}
+            active={active}
+          />
         );
       })}
 
       <div className="flex-1" />
 
-      {/* User avatar */}
       <div className="flex items-center gap-2.5 px-3 py-2.5 text-xs" style={{ color: "var(--color-fg2)" }}>
-        <div
-          className="w-7 h-7 rounded-full shrink-0 overflow-hidden"
-          style={{ background: "var(--color-stone-300)" }}
-        >
-          {user?.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
-          )}
-        </div>
+        <Avatar size={28} />
         <div className="leading-tight">
           <div className="font-semibold" style={{ color: "var(--color-midnight)" }}>
             {user?.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim().toLowerCase() : "..."}
