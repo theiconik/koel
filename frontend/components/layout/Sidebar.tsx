@@ -9,9 +9,9 @@ import NavItem from "@/components/ui/NavItem";
 import Avatar from "@/components/ui/Avatar";
 
 const navItems: { href: string; icon: IconName; label: string }[] = [
-  { href: "/app",          icon: "home",     label: "Home" },
-  { href: "/app/insights", icon: "chart",    label: "Insights" },
-  { href: "/app/settings", icon: "settings", label: "Settings" },
+  { href: "/home",     icon: "home",     label: "Home" },
+  { href: "/insights", icon: "chart",    label: "Insights" },
+  { href: "/settings", icon: "settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
@@ -29,7 +29,7 @@ export default function Sidebar() {
       <AppBrand />
       <div className="h-3" />
 
-      <Link href="/app/surveys/new" className="block mb-3.5">
+      <Link href="/surveys/new" className="block mb-3.5">
         <Button variant="midnight" className="w-full justify-start gap-2.5 !px-3.5 !py-3">
           <Icon name="plus" size={18} />
           New survey
@@ -38,7 +38,7 @@ export default function Sidebar() {
 
       {navItems.map((item) => {
         const active =
-          item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
+          item.href === "/home" ? pathname === "/home" : pathname.startsWith(item.href);
         return (
           <NavItem
             key={item.href}

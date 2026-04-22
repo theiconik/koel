@@ -173,5 +173,8 @@ html, body {
 }
 
 .animate-meteor {
-  animation: meteor-fall linear infinite;
+  animation-name: meteor-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* animation-duration and animation-delay come from inline styles */
 }
