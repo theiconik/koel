@@ -29,7 +29,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
     <>
       <TopBar
         title={survey.title}
-        crumbs={<Crumbs items={[{ href: "/app", label: "HOME" }, "SURVEY"]} />}
+        crumbs={<Crumbs items={[{ href: "/home", label: "HOME" }, "SURVEY"]} />}
         cta={
           <>
             <Button variant="outline" onClick={() => navigator.clipboard.writeText(survey.shareUrl)}>

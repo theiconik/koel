@@ -56,7 +56,7 @@ export default function NewSurveyPage() {
     <>
       <TopBar
         title="new survey"
-        crumbs={<Crumbs items={[{ href: "/app", label: "HOME" }, "NEW"]} />}
+        crumbs={<Crumbs items={[{ href: "/home", label: "HOME" }, "NEW"]} />}
         cta={
           <>
             <Button variant="outline" disabled title="Preview is coming soon">
