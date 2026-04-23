@@ -4,7 +4,7 @@ import Image from "next/image";
 import TopBar from "@/components/layout/TopBar";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
-import { useSurveys } from "@/lib/hooks/useSurveys";
+import { useSurveys } from "@/hooks/useSurveys";
 import type { InsightMessage, Survey } from "@/lib/types";
 
 const ERROR_MSG = "Sorry, we are facing some issues. Please try again later.";

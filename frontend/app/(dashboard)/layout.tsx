@@ -1,5 +1,5 @@
 import Sidebar from "@/components/layout/Sidebar";
-import { SurveysProvider } from "@/lib/contexts/SurveysContext";
+import { SurveysProvider } from "@/contexts/SurveysContext";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
