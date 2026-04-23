@@ -6,8 +6,8 @@ import StatCard from "@/components/ui/StatCard";
 import SurveyCard from "@/components/ui/SurveyCard";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
-import { useSurveys } from "@/lib/hooks/useSurveys";
-import { useStats } from "@/lib/hooks/useStats";
+import { useSurveys } from "@/hooks/useSurveys";
+import { useStats } from "@/hooks/useStats";
 
 export default function DashboardPage() {
   const router = useRouter();

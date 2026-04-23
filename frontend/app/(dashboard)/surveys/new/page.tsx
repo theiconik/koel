@@ -4,7 +4,7 @@ import TopBar from "@/components/layout/TopBar";
 import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
-import { useSurveys } from "@/lib/hooks/useSurveys";
+import { useSurveys } from "@/hooks/useSurveys";
 import type { Survey } from "@/lib/types";
 
 type Draft = { id: string; text: string };

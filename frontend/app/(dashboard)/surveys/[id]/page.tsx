@@ -5,7 +5,7 @@ import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import StatusChip from "@/components/ui/StatusChip";
-import { useSurvey } from "@/lib/hooks/useSurvey";
+import { useSurvey } from "@/hooks/useSurvey";
 
 const TABS = ["voices", "themes", "questions", "settings"] as const;
 type Tab = (typeof TABS)[number];
