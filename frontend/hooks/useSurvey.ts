@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getSurvey, getResponses, getThemes } from "@/lib/data";
+import { useSurveys } from "@/hooks/useSurveys";
 import type { Survey, Response, Theme } from "@/lib/types";
 
 export function useSurvey(id: string) {
+  const { surveys, loading: surveysLoading } = useSurveys();
   const [survey, setSurvey] = useState<Survey | undefined>();
   const [responses, setResponses] = useState<Response[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -12,12 +14,18 @@ export function useSurvey(id: string) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getSurvey(id), getResponses(id), getThemes(id)])
+    const surveyFromContext = surveys.find((s) => s.id === id);
+
+    Promise.all([
+      surveyFromContext ? Promise.resolve(surveyFromContext) : getSurvey(id),
+      getResponses(id),
+      getThemes(id),
+    ])
       .then(([s, r, t]) => {
         if (cancelled) return;
         setSurvey(s);
         setResponses(r);
-        setThemes(t);
+        setThemes(r.length > 0 ? t : []);
         setError(null);
       })
       .catch((e) => {
@@ -30,7 +38,7 @@ export function useSurvey(id: string) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, surveys]);
 
-  return { survey, responses, themes, loading, error };
+  return { survey, responses, themes, loading: loading || surveysLoading, error };
 }

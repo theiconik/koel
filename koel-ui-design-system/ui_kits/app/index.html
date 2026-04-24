@@ -8,9 +8,13 @@
   <style>
     html, body, #root { margin:0; padding:0; height:100%; background: var(--bg); }
     *, *::before, *::after { box-sizing: border-box; }
-    button:hover { filter: brightness(0.95); }
-    button:active { transform: scale(0.98); }
+    button:hover { filter: brightness(0.97); }
+    button:active { transform: scale(0.99); }
     input:focus, textarea:focus { outline: none; border-color: rgba(26,26,46,0.4); box-shadow: 0 0 0 3px rgba(232,176,75,0.35); }
+    @keyframes toastIn { from { opacity:0; transform: translate(-50%, 12px); } to { opacity:1; transform: translate(-50%, 0); } }
+    @keyframes modalIn { from { opacity:0; transform: scale(0.97); } to { opacity:1; transform: scale(1); } }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    @keyframes slideUp { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -19,29 +23,60 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script type="text/babel" src="./Components.jsx"></script>
+  <script type="text/babel" src="./Views.jsx"></script>
   <script type="text/babel">
     function App() {
-      const [view, setView] = React.useState("home"); // home | survey | new | session | insights | settings
+      // route: home | allSurveys | survey | new | published | session | insights | settings
+      const [route, setRoute] = React.useState({ name: "home" });
       const [activeNav, setActiveNav] = React.useState("home");
-      if (view === "session") return <RespondentSession onBack={() => setView("new")}/>;
-      return (
+      const [toast, setToast] = React.useState(null);
+      const [shareOpen, setShareOpen] = React.useState(false);
+
+      function go(name, params = {}) {
+        setRoute({ name, ...params });
+        if (["home","allSurveys"].includes(name)) setActiveNav("home");
+        else if (name === "insights") setActiveNav("insights");
+        else if (name === "settings") setActiveNav("settings");
+      }
+
+      function showToast(text) {
+        setToast(text);
+        clearTimeout(window.__toastT); window.__toastT = setTimeout(() => setToast(null), 2400);
+      }
+
+      const shell = (content) => (
         <div style={{ display: "flex", height: "100vh", background: "#FAF7F2" }}>
-          <Sidebar
-            active={activeNav}
-            onSelect={k => {
-              if (k === "new") { setView("new"); setActiveNav("home"); }
-              else { setActiveNav(k); setView(k); }
-            }}
-          />
-          <main style={{ flex: 1, overflow: "auto", minWidth: 0 }}>
-            {view === "home" && <DashboardHome onOpenSurvey={() => { setView("responses"); setActiveNav("responses"); }} onNew={() => setView("new")}/>}
-            {view === "responses" && <ResponsesView onBack={() => { setView("home"); setActiveNav("home"); }} onOpenResponse={() => setView("session")}/>}
-            {view === "new" && <NewSurveyView onBack={() => { setView("home"); setActiveNav("home"); }} onPublish={() => setView("session")}/>}
-            {view === "insights" && <InsightsView/>}
-            {view === "settings" && <SettingsView/>}
-          </main>
+          <Sidebar active={activeNav} onSelect={k => { if (k === "new") go("new"); else go(k); }}/>
+          <main style={{ flex: 1, overflow: "auto", minWidth: 0, position: "relative" }}>{content}</main>
+          {toast && <Toast text={toast}/>}
+          {shareOpen && <ShareModal onClose={() => setShareOpen(false)} url="https://koel.to/roshi/onboarding-v3"/>}
         </div>
       );
+
+      // respondent session runs full-bleed (no sidebar) — preview mode
+      if (route.name === "session") return (<>
+        <RespondentSession onBack={() => go("survey", { survey: route.survey })}/>
+        {toast && <Toast text={toast}/>}
+      </>);
+
+      if (route.name === "published") return (<>
+        <PublishedView
+          survey={route.survey}
+          onCopy={() => showToast("link copied to clipboard")}
+          onShare={() => setShareOpen(true)}
+          onDone={() => go("survey", { survey: route.survey })}
+        />
+        {toast && <Toast text={toast}/>}
+        {shareOpen && <ShareModal onClose={() => setShareOpen(false)} url={`https://koel.to/roshi/${(route.survey||{}).slug||"onboarding-v3"}`}/>}
+      </>);
+
+      if (route.name === "home")       return shell(<DashboardHome onOpenSurvey={s => go("survey", { survey: s })} onNew={() => go("new")} onViewAll={() => go("allSurveys")}/>);
+      if (route.name === "allSurveys") return shell(<AllSurveysView onBack={() => go("home")} onOpenSurvey={s => go("survey", { survey: s })} onNew={() => go("new")}/>);
+      if (route.name === "survey")     return shell(<SurveyDetail survey={route.survey} tab={route.tab || "voices"} onTab={t => setRoute(r => ({ ...r, tab: t }))} onBack={() => go("home")} onOpenResponse={r => setRoute(rt => ({ ...rt, respondent: r, tab: "voices", showResponse: true }))} onCopy={() => showToast("link copied to clipboard")} onShare={() => setShareOpen(true)} showResponse={route.showResponse} respondent={route.respondent} onCloseResponse={() => setRoute(rt => ({ ...rt, showResponse: false }))}/>);
+      if (route.name === "new")        return shell(<NewSurveyView onBack={() => go("home")} onPreview={() => setRoute({ name: "session", survey: { title: "new survey" }})} onPublish={() => go("published", { survey: { title: "onboarding feedback — v3", slug: "onboarding-v3" }})}/>);
+      if (route.name === "insights")   return shell(<InsightsView/>);
+      if (route.name === "settings")   return shell(<SettingsView/>);
+      return shell(null);
     }
     ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
