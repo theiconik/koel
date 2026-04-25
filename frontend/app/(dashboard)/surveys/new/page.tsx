@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
@@ -11,11 +12,10 @@ type Draft = { id: string; text: string };
 const newDraft = (): Draft => ({ id: crypto.randomUUID(), text: "" });
 
 export default function NewSurveyPage() {
+  const router = useRouter();
   const { addSurvey } = useSurveys();
   const [title, setTitle] = useState("");
   const [questions, setQuestions] = useState<Draft[]>(() => [newDraft(), newDraft()]);
-  const [published, setPublished] = useState(false);
-  const [shareUrl, setShareUrl] = useState("");
 
   function updateQuestion(id: string, val: string) {
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, text: val } : q)));
@@ -48,8 +48,7 @@ export default function NewSurveyPage() {
       shareUrl: url,
     };
     addSurvey(survey);
-    setShareUrl(url);
-    setPublished(true);
+    router.push(`/surveys/${id}/published`);
   }
 
   return (
@@ -62,8 +61,8 @@ export default function NewSurveyPage() {
             <Button variant="outline" disabled title="Preview is coming soon">
               Preview
             </Button>
-            <Button variant="primary" onClick={handlePublish} disabled={!title.trim() || published}>
-              {published ? "Published" : "Publish"}
+            <Button variant="primary" onClick={handlePublish} disabled={!title.trim()}>
+              Publish
             </Button>
           </>
         }
@@ -199,33 +198,6 @@ export default function NewSurveyPage() {
             respondents get a single link. no account needed. we ask for the microphone — nothing else.
           </div>
 
-          {published && (
-            <div className="mt-5">
-              <div
-                className="text-[11px] font-semibold tracking-[0.1em] uppercase mb-2"
-                style={{ color: "var(--color-mango)" }}
-              >
-                SHARE LINK
-              </div>
-              <div
-                className="text-xs break-all p-3 rounded-lg"
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  color: "rgba(250,247,242,0.8)",
-                  fontFamily: "var(--font-mono)",
-                }}
-              >
-                {shareUrl}
-              </div>
-              <button
-                onClick={() => navigator.clipboard.writeText(shareUrl)}
-                className="mt-2 flex items-center gap-1.5 text-xs"
-                style={{ background: "none", border: "none", color: "rgba(250,247,242,0.6)", cursor: "pointer", fontFamily: "var(--font-body)" }}
-              >
-                <Icon name="copy" size={12} /> copy link
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </>

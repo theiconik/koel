@@ -1,4 +1,17 @@
 export type SurveyStatus = "live" | "draft" | "closed";
+export type Sentiment = "delighted" | "neutral" | "frustrated";
+
+export interface TranscriptSegment {
+  t: string;
+  who: "koel" | "them";
+  text: string;
+  highlight?: boolean;
+}
+
+export interface ThemeQuote {
+  q: string;
+  who: string;
+}
 
 export interface Survey {
   id: string;
@@ -17,6 +30,10 @@ export interface Question {
   id: string;
   text: string;
   order: number;
+  askedCount?: number;
+  answeredCount?: number;
+  avgFollowUps?: number;
+  topTag?: string;
 }
 
 export interface Response {
@@ -27,7 +44,11 @@ export interface Response {
   isAnonymous: boolean;
   quote: string;
   duration: string;
+  durationSeconds: number;
   tags: string[];
+  sentiment: Sentiment;
+  transcript: TranscriptSegment[];
+  koelSummary: string;
   createdAt: string;
 }
 
@@ -35,6 +56,8 @@ export interface Theme {
   name: string;
   count: number;
   color: string;
+  summary?: string;
+  quotes?: ThemeQuote[];
 }
 
 export interface DashboardStats {

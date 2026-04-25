@@ -58,6 +58,7 @@ export default function DashboardPage() {
               your surveys
             </div>
             <button
+              onClick={() => router.push("/surveys")}
               className="flex items-center gap-1 text-sm"
               style={{ background: "transparent", border: "none", color: "var(--color-fg2)", cursor: "pointer" }}
             >
