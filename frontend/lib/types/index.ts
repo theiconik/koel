@@ -73,3 +73,24 @@ export interface InsightMessage {
   role: "user" | "assistant";
   text: string;
 }
+
+export type VoiceAgentMode = "speaking" | "listening" | "thinking" | "ended" | "error";
+
+export interface VoiceAgentSnapshot {
+  mode: VoiceAgentMode;
+  caption: string;
+  level: number;
+  elapsedSeconds: number;
+  canInterrupt: boolean;
+  conversationId?: string;
+  error?: string;
+}
+
+export interface VoiceAgentSession {
+  getSnapshot: () => VoiceAgentSnapshot;
+  subscribe: (listener: () => void) => () => void;
+  start: () => void;
+  interrupt: () => void;
+  end: () => void;
+  dispose: () => void;
+}

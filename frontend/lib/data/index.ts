@@ -22,6 +22,11 @@ export async function getSurvey(id: string): Promise<Survey | undefined> {
   return apiFetch<Survey>(`/surveys/${id}`);
 }
 
+export async function getSurveyBySlug(slug: string): Promise<Survey | undefined> {
+  if (useMock) return mockSurveys.find((s) => s.shareUrl.endsWith(`/s/${slug}`));
+  return apiFetch<Survey>(`/surveys/share/${encodeURIComponent(slug)}`);
+}
+
 export async function getResponses(surveyId: string): Promise<Response[]> {
   if (useMock) return mockResponses.filter((r) => r.surveyId === surveyId);
   return apiFetch<Response[]>(`/surveys/${surveyId}/responses`);

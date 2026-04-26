@@ -14,6 +14,15 @@
     @keyframes slideUp { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform: translateY(0); } }
     @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
     @keyframes thinkDot { 0%,80%,100% { opacity: 0.2; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+    @keyframes orbBreathe { 0%,100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.035); filter: brightness(1.08); } }
+    @keyframes orbSpeak   { 0%,100% { transform: scale(1); } 25% { transform: scale(1.06); } 50% { transform: scale(0.985); } 75% { transform: scale(1.04); } }
+    @keyframes ringPulse  { 0% { transform: scale(0.92); opacity: 0.55; } 100% { transform: scale(1.4); opacity: 0; } }
+    @keyframes captionIn  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes captionOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
+    @keyframes drift1 { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(8%,-6%) scale(1.05); } 66% { transform: translate(-6%,8%) scale(0.97); } }
+    @keyframes drift2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-10%,6%) scale(1.08); } }
+    @keyframes drift3 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(8%,8%) scale(0.94); } }
+    @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
