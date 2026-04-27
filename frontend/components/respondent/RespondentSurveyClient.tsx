@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import { isMockMode, startVoiceSession, submitResponse } from "@/lib/data";
 import type { Survey, VoiceAgentMode, VoiceAgentSnapshot } from "@/lib/types";
-import { createMockVoiceAgent } from "@/lib/voice/agent";
+import { createElevenLabsVoiceAgent, createMockVoiceAgent } from "@/lib/voice/agent";
 
 type Stage = "landing" | "permission" | "chatting" | "ending" | "thanks";
 type PermissionState = "idle" | "requesting" | "granted" | "denied";
@@ -348,7 +349,17 @@ function VoiceConversation({
   );
 }
 
-function Ending({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+function Ending({
+  onConfirm,
+  onCancel,
+  submitting,
+  error,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  submitting: boolean;
+  error: string | null;
+}) {
   return (
     <section className="flex-1 flex items-center justify-center px-7 py-10">
       <div className="respondent-slide-up max-w-[520px] text-center">
@@ -358,12 +369,13 @@ function Ending({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () =
         <p className="text-[15px] text-fg2 leading-[1.65] max-w-[420px] mx-auto mb-8">
           we&apos;ll send your conversation to the team. you won&apos;t be able to add more after this.
         </p>
+        {error && <p className="text-sm text-danger mb-5">{error}</p>}
         <div className="flex gap-2.5 justify-center flex-wrap">
-          <Button variant="outline" onClick={onCancel} className="rounded-full px-[25px] py-[13px] text-[15px]">
+          <Button variant="outline" onClick={onCancel} disabled={submitting} className="rounded-full px-[25px] py-[13px] text-[15px]">
             not yet - keep talking
           </Button>
-          <Button variant="midnight" onClick={onConfirm} className="rounded-full px-[26px] py-[14px] text-[15px]">
-            yes, i&apos;m done <Icon name="check" size={14} stroke={2.5} />
+          <Button variant="midnight" onClick={onConfirm} disabled={submitting} className="rounded-full px-[26px] py-[14px] text-[15px]">
+            {submitting ? "submitting..." : "yes, i'm done"} <Icon name="check" size={14} stroke={2.5} />
           </Button>
         </div>
       </div>
@@ -417,33 +429,56 @@ function Thanks({ onRestart }: { onRestart: () => void }) {
   );
 }
 
-export default function RespondentSurveyClient({ survey }: { survey: Survey }) {
+export default function RespondentSurveyClient({ survey, slug }: { survey: Survey; slug: string }) {
   const [stage, setStage] = useState<Stage>("landing");
-  const agent = useMemo(() => createMockVoiceAgent(), []);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const agent = useMemo(
+    () =>
+      isMockMode()
+        ? createMockVoiceAgent()
+        : createElevenLabsVoiceAgent(() => startVoiceSession(slug)),
+    [slug],
+  );
   const snapshot = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getSnapshot);
 
   useEffect(() => {
     return () => agent.dispose();
   }, [agent]);
 
-  function startConversation() {
-    agent.start();
-    setStage("chatting");
+  async function startConversation() {
+    setSubmitError(null);
+    try {
+      await agent.start();
+      setStage("chatting");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Could not start the voice session.");
+    }
   }
 
   function requestEnd() {
-    agent.end();
     setStage("ending");
   }
 
   function cancelEnd() {
-    agent.start();
     setStage("chatting");
   }
 
-  function confirmEnd() {
-    agent.end();
-    setStage("thanks");
+  async function confirmEnd() {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await agent.end();
+      await submitResponse(slug, {
+        conversation_id: snapshot.conversationId ?? `manual-${Date.now()}`,
+        is_anonymous: true,
+      });
+      setStage("thanks");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Could not submit your response.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function restart() {
@@ -465,9 +500,23 @@ export default function RespondentSurveyClient({ survey }: { survey: Survey }) {
 
       <main className="flex-1 flex flex-col">
         {stage === "landing" && <Landing survey={survey} onStart={() => setStage("permission")} />}
-        {stage === "permission" && <Permission onAllow={startConversation} onBack={() => setStage("landing")} />}
+        {stage === "permission" && (
+          <>
+            {submitError && (
+              <div className="px-7 pt-4 text-center text-sm text-danger">{submitError}</div>
+            )}
+            <Permission onAllow={startConversation} onBack={() => setStage("landing")} />
+          </>
+        )}
         {stage === "chatting" && <VoiceConversation snapshot={snapshot} onEnd={requestEnd} onInterrupt={agent.interrupt} />}
-        {stage === "ending" && <Ending onConfirm={confirmEnd} onCancel={cancelEnd} />}
+        {stage === "ending" && (
+          <Ending
+            onConfirm={confirmEnd}
+            onCancel={cancelEnd}
+            submitting={submitting}
+            error={submitError}
+          />
+        )}
         {stage === "thanks" && <Thanks onRestart={restart} />}
       </main>
 

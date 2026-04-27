@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { getSurveys } from "@/lib/data";
 import type { Survey } from "@/lib/types";
 
@@ -7,6 +8,7 @@ interface SurveysValue {
   surveys: Survey[];
   loading: boolean;
   error: Error | null;
+  reload: () => void;
   addSurvey: (survey: Survey) => void;
   updateSurvey: (id: string, patch: Partial<Survey>) => void;
 }
@@ -14,13 +16,21 @@ interface SurveysValue {
 const SurveysContext = createContext<SurveysValue | null>(null);
 
 export function SurveysProvider({ children }: { children: React.ReactNode }) {
+  const { getToken, isLoaded } = useAuth();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!isLoaded) return;
     let cancelled = false;
-    getSurveys()
+    Promise.resolve()
+      .then(() => {
+        if (!cancelled) setLoading(true);
+        return getToken();
+      })
+      .then((token) => getSurveys(token))
       .then((data) => {
         if (cancelled) return;
         setSurveys(data);
@@ -36,7 +46,9 @@ export function SurveysProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [getToken, isLoaded, reloadKey]);
+
+  const reload = () => setReloadKey((key) => key + 1);
 
   const addSurvey = (survey: Survey) =>
     setSurveys((prev) => [survey, ...prev]);
@@ -48,7 +60,7 @@ export function SurveysProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SurveysContext.Provider
-      value={{ surveys, loading, error, addSurvey, updateSurvey }}
+      value={{ surveys, loading, error, reload, addSurvey, updateSurvey }}
     >
       {children}
     </SurveysContext.Provider>

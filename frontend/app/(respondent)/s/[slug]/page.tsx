@@ -3,7 +3,24 @@ import { getSurveyBySlug } from "@/lib/data";
 
 export default async function RespondentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const survey = await getSurveyBySlug(slug);
+  let survey;
+  let error: Error | null = null;
+  try {
+    survey = await getSurveyBySlug(slug);
+  } catch (e) {
+    error = e instanceof Error ? e : new Error("Could not load survey.");
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col gap-3 items-center justify-center text-fg3 text-sm font-body">
+        <div>{error.message}</div>
+        <a className="underline text-midnight" href={`/s/${slug}`}>
+          try again
+        </a>
+      </div>
+    );
+  }
 
   if (!survey) {
     return (
@@ -13,5 +30,5 @@ export default async function RespondentPage({ params }: { params: Promise<{ slu
     );
   }
 
-  return <RespondentSurveyClient survey={survey} />;
+  return <RespondentSurveyClient survey={survey} slug={slug} />;
 }
