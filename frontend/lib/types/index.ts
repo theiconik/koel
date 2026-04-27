@@ -62,6 +62,7 @@ export interface Response {
   koelSummary: string;
   processingStatus: "pending" | "processing" | "done" | "failed";
   processingError?: string | null;
+  audioUrl?: string | null;
   createdAt: string;
 }
 

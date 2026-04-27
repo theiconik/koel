@@ -20,7 +20,7 @@ GET /surveys/{survey_id}/themes
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 
 from auth.clerk import get_current_user
 from db.client import get_client
@@ -30,6 +30,7 @@ from db.schemas import (
     ResponseSubmitRequest,
     ThemeOut,
 )
+from services.elevenlabs import ElevenLabsError, fetch_conversation_audio
 from services.processing import process_response
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,11 @@ def _fallback_transcript(transcript: str | None) -> list[dict]:
 
 def _response_out(r: dict) -> ResponseOut:
     duration_seconds = r.get("duration_seconds") or 0
+    audio_url = (
+        f"/surveys/{r['survey_id']}/responses/{r['id']}/audio"
+        if r.get("conversation_id")
+        else None
+    )
     return ResponseOut(
         id=r["id"],
         surveyId=r["survey_id"],
@@ -88,6 +94,7 @@ def _response_out(r: dict) -> ResponseOut:
         koelSummary=r.get("summary") or "",
         processingStatus=r.get("processing_status") or "pending",
         processingError=r.get("processing_error"),
+        audioUrl=audio_url,
         createdAt=r["created_at"],
     )
 
@@ -277,6 +284,54 @@ async def retry_response_processing(
         conversation_id=response["conversation_id"],
     )
     return ResponseSubmitAck(id=rid, status="pending")
+
+
+# ─── GET /surveys/{survey_id}/responses/{response_id}/audio ─────────────────
+
+@router.get("/{survey_id}/responses/{response_id}/audio")
+async def get_response_audio(
+    survey_id: UUID,
+    response_id: UUID,
+    user_id: str = Depends(get_current_user),
+):
+    sid = str(survey_id)
+    rid = str(response_id)
+    db = get_client()
+    _ensure_owner(db, sid, user_id)
+
+    resp = (
+        db.table("responses")
+        .select("id, survey_id, conversation_id")
+        .eq("id", rid)
+        .eq("survey_id", sid)
+        .limit(1)
+        .execute()
+    )
+    response = resp.data[0] if resp.data else None
+    if not response:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found")
+    if not response.get("conversation_id"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Response has no conversation recording",
+        )
+
+    try:
+        content, media_type = await fetch_conversation_audio(response["conversation_id"])
+    except ElevenLabsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not fetch response audio",
+        ) from exc
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Disposition": f'inline; filename="koel-response-{rid}.mp3"',
+        },
+    )
 
 
 # ─── GET /surveys/{survey_id}/responses ──────────────────────────────────────

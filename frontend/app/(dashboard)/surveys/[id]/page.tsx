@@ -251,6 +251,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
           response={activeResponse}
           onClose={() => setActiveResponse(null)}
           onRetry={activeResponse.processingError ? () => retryResponse(activeResponse) : undefined}
+          getAuthToken={getToken}
         />
       )}
 

@@ -133,3 +133,30 @@ async def fetch_conversation(conversation_id: str) -> dict:
         "duration_seconds": duration_seconds,
         "raw": data,
     }
+
+
+async def fetch_conversation_audio(conversation_id: str) -> tuple[bytes, str]:
+    """Fetch the ElevenLabs recording for a completed conversation."""
+    url = f"{_BASE}/convai/conversations/{conversation_id}/audio"
+    logger.info("Fetching ElevenLabs audio for conversation %s", conversation_id)
+
+    async with httpx.AsyncClient(timeout=processing.elevenlabs_timeout_seconds) as client:
+        resp = await client.get(url, headers={"xi-api-key": settings.elevenlabs_api_key})
+
+    if resp.status_code == 404:
+        logger.warning("ElevenLabs audio for conversation %s not found (404)", conversation_id)
+        raise ElevenLabsError(f"Audio for conversation {conversation_id!r} not found")
+    if resp.status_code == 422:
+        logger.warning("ElevenLabs audio for conversation %s is not available yet", conversation_id)
+        raise ElevenLabsError(f"Audio for conversation {conversation_id!r} is not available")
+    if not resp.is_success:
+        logger.error(
+            "ElevenLabs audio API error for conversation %s: status=%d body=%s",
+            conversation_id,
+            resp.status_code,
+            resp.text[:200],
+        )
+        raise ElevenLabsError(f"ElevenLabs audio API error {resp.status_code}: {resp.text}")
+
+    content_type = resp.headers.get("content-type") or "audio/mpeg"
+    return resp.content, content_type

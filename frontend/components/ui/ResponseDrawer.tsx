@@ -7,6 +7,7 @@ interface ResponseDrawerProps {
   response: Response;
   onClose: () => void;
   onRetry?: () => Promise<void>;
+  getAuthToken?: () => Promise<string | null>;
 }
 
 const sentimentLabels: Record<Sentiment, string> = {
@@ -22,6 +23,12 @@ const statusLabels: Record<Response["processingStatus"], string> = {
   done: "completed",
   failed: "failed",
 };
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
+function resolveAudioUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${apiBaseUrl}${path}`;
+}
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -52,41 +59,88 @@ function speakerLabel(response: Response) {
   return response.respondentName.split(" ")[0].replace(/[^a-z]/gi, "").toUpperCase() || "THEM";
 }
 
-export default function ResponseDrawer({ response, onClose, onRetry }: ResponseDrawerProps) {
+export default function ResponseDrawer({ response, onClose, onRetry, getAuthToken }: ResponseDrawerProps) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
+  const [audioState, setAudioState] = useState<"idle" | "loading" | "ready" | "error">(
+    response.audioUrl ? "idle" : "error",
+  );
+  const [audioError, setAudioError] = useState<string | null>(
+    response.audioUrl ? null : "Audio recording is not available for this response.",
+  );
   const [retrying, setRetrying] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
   const participant = useMemo(() => speakerLabel(response), [response]);
-  const progress = response.durationSeconds > 0 ? pos / response.durationSeconds : 0;
+  const progress = response.durationSeconds > 0 ? Math.min(pos / response.durationSeconds, 1) : 0;
   const metaDate = responseDate(response.createdAt);
   const initial = response.respondentName.trim().charAt(0).toLowerCase() || "?";
 
   useEffect(() => {
-    if (!playing) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    return () => {
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  async function ensureAudioLoaded() {
+    if (!response.audioUrl) {
+      throw new Error("Audio recording is not available for this response.");
+    }
+    if (audioRef.current?.src) return audioRef.current;
+
+    const token = getAuthToken ? await getAuthToken() : null;
+    const headers = new Headers({ Accept: "audio/*" });
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    const res = await fetch(resolveAudioUrl(response.audioUrl), {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new Error(res.status === 404 ? "Audio recording was not found." : "Audio recording could not be loaded.");
+    }
+
+    const audio = audioRef.current;
+    if (!audio) throw new Error("Audio player is not ready.");
+
+    const objectUrl = URL.createObjectURL(await res.blob());
+    if (audioObjectUrlRef.current) URL.revokeObjectURL(audioObjectUrlRef.current);
+    audioObjectUrlRef.current = objectUrl;
+    audio.src = objectUrl;
+    audio.load();
+    return audio;
+  }
+
+  async function togglePlayback() {
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
       return;
     }
 
-    intervalRef.current = setInterval(() => {
-      setPos((p) => {
-        if (p >= response.durationSeconds) {
-          setPlaying(false);
-          return response.durationSeconds;
-        }
-        return p + 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [playing, response.durationSeconds]);
+    setAudioError(null);
+    try {
+      setAudioState((state) => (state === "ready" ? "ready" : "loading"));
+      const audio = await ensureAudioLoaded();
+      await audio.play();
+      setAudioState("ready");
+      setPlaying(true);
+    } catch (error) {
+      setPlaying(false);
+      setAudioState("error");
+      setAudioError(error instanceof Error ? error.message : "Audio recording could not be played.");
+    }
+  }
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-    setPos(Math.round(ratio * response.durationSeconds));
+    const nextPos = Math.round(ratio * response.durationSeconds);
+    if (audioRef.current?.src) audioRef.current.currentTime = nextPos;
+    setPos(nextPos);
   }
 
   return (
@@ -252,16 +306,32 @@ export default function ResponseDrawer({ response, onClose, onRetry }: ResponseD
             className="mt-7 flex h-[105px] items-center rounded-2xl px-5"
             style={{ background: "var(--color-midnight)", color: "var(--color-fg-inverse)" }}
           >
+            <audio
+              ref={audioRef}
+              preload="none"
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onEnded={() => {
+                setPlaying(false);
+                setPos(response.durationSeconds);
+              }}
+              onTimeUpdate={(event) => setPos(Math.floor(event.currentTarget.currentTime))}
+              onLoadedMetadata={(event) => {
+                if (response.durationSeconds === 0) setPos(Math.floor(event.currentTarget.currentTime));
+              }}
+            />
             <button
-              onClick={() => setPlaying((p) => !p)}
+              onClick={togglePlayback}
+              disabled={!response.audioUrl || audioState === "loading"}
               className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.98]"
               style={{
                 background: "var(--color-mango)",
                 border: "none",
                 color: "var(--color-midnight)",
-                cursor: "pointer",
+                cursor: !response.audioUrl || audioState === "loading" ? "not-allowed" : "pointer",
+                opacity: !response.audioUrl ? 0.55 : 1,
               }}
-              aria-label={playing ? "Pause response audio" : "Play response audio"}
+              aria-label={audioState === "loading" ? "Loading response audio" : playing ? "Pause response audio" : "Play response audio"}
             >
               <Icon name={playing ? "pause" : "play"} size={19} stroke={1.8} />
             </button>
@@ -303,6 +373,11 @@ export default function ResponseDrawer({ response, onClose, onRetry }: ResponseD
               {response.duration.replace("m ", "m  ")}
             </div>
           </section>
+          {audioError && (
+            <p className="mt-2 text-[13px]" style={{ color: "var(--color-fg3)" }}>
+              {audioError}
+            </p>
+          )}
 
           <section className="mt-[54px]">
             <div
@@ -354,9 +429,9 @@ export default function ResponseDrawer({ response, onClose, onRetry }: ResponseD
                       className="leading-relaxed"
                       style={{
                         color: seg.who === "them" ? "var(--color-midnight)" : "var(--color-fg2)",
-                        fontFamily: seg.who === "them" ? "var(--font-display)" : "var(--font-body)",
-                        fontSize: seg.who === "them" ? 24 : 19,
-                        lineHeight: seg.who === "them" ? 1.48 : 1.42,
+                        fontFamily: "var(--font-body)",
+                        fontSize: 22,
+                        lineHeight: 1.5,
                       }}
                     >
                       {seg.text}

@@ -112,6 +112,7 @@ class ResponseOut(BaseModel):
     koelSummary: str
     processingStatus: ProcessingStatus
     processingError: str | None = None
+    audioUrl: str | None = None
     createdAt: str
 
 
