@@ -5,6 +5,7 @@ import TopBar from "@/components/layout/TopBar";
 import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import SurveyCard from "@/components/ui/SurveyCard";
 import { useSurveys } from "@/hooks/useSurveys";
 import type { SurveyStatus } from "@/lib/types";
@@ -81,9 +82,7 @@ export default function AllSurveysPage() {
           </div>
         )}
         {loading && (
-          <div className="py-16 text-center text-sm" style={{ color: "var(--color-fg3)" }}>
-            loading surveys...
-          </div>
+          <LoadingAnimation label="Loading surveys" className="py-12" />
         )}
         {/* Filter chips */}
         {!loading && <div className="flex gap-2 mb-6">

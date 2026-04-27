@@ -5,6 +5,7 @@ import Crumbs from "@/components/layout/Crumbs";
 import TopBar from "@/components/layout/TopBar";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import Toast from "@/components/ui/Toast";
 import ShareModal from "@/components/ui/ShareModal";
 import { useSurvey } from "@/hooks/useSurvey";
@@ -24,9 +25,7 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ color: "var(--color-fg3)" }}>
-        loading…
-      </div>
+      <LoadingAnimation label="Loading published survey" className="flex-1" />
     );
   }
 
