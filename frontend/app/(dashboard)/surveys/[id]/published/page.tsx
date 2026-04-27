@@ -5,6 +5,7 @@ import Crumbs from "@/components/layout/Crumbs";
 import TopBar from "@/components/layout/TopBar";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import Toast from "@/components/ui/Toast";
 import ShareModal from "@/components/ui/ShareModal";
 import { useSurvey } from "@/hooks/useSurvey";
@@ -18,14 +19,23 @@ const STEPS = [
 export default function PublishedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { survey, loading } = useSurvey(id);
+  const { survey, loading, error, reload } = useSurvey(id);
   const [showToast, setShowToast] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center" style={{ color: "var(--color-fg3)" }}>
-        loading…
+      <LoadingAnimation label="Loading published survey" className="flex-1" />
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: "var(--color-fg3)" }}>
+        <div>{error.message}</div>
+        <Button variant="outline" onClick={reload}>
+          Try again
+        </Button>
       </div>
     );
   }

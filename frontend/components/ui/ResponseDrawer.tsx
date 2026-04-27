@@ -6,6 +6,8 @@ import Icon from "./Icon";
 interface ResponseDrawerProps {
   response: Response;
   onClose: () => void;
+  onRetry?: () => Promise<void>;
+  getAuthToken?: () => Promise<string | null>;
 }
 
 const sentimentLabels: Record<Sentiment, string> = {
@@ -15,6 +17,18 @@ const sentimentLabels: Record<Sentiment, string> = {
 };
 
 const BAR_COUNT = 82;
+const statusLabels: Record<Response["processingStatus"], string> = {
+  pending: "pending",
+  processing: "processing",
+  done: "completed",
+  failed: "failed",
+};
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
+function resolveAudioUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${apiBaseUrl}${path}`;
+}
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -45,40 +59,88 @@ function speakerLabel(response: Response) {
   return response.respondentName.split(" ")[0].replace(/[^a-z]/gi, "").toUpperCase() || "THEM";
 }
 
-export default function ResponseDrawer({ response, onClose }: ResponseDrawerProps) {
+export default function ResponseDrawer({ response, onClose, onRetry, getAuthToken }: ResponseDrawerProps) {
   const [playing, setPlaying] = useState(false);
-  const [pos, setPos] = useState(42);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pos, setPos] = useState(0);
+  const [audioState, setAudioState] = useState<"idle" | "loading" | "ready" | "error">(
+    response.audioUrl ? "idle" : "error",
+  );
+  const [audioError, setAudioError] = useState<string | null>(
+    response.audioUrl ? null : "Audio recording is not available for this response.",
+  );
+  const [retrying, setRetrying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
   const participant = useMemo(() => speakerLabel(response), [response]);
-  const progress = response.durationSeconds > 0 ? pos / response.durationSeconds : 0;
+  const progress = response.durationSeconds > 0 ? Math.min(pos / response.durationSeconds, 1) : 0;
   const metaDate = responseDate(response.createdAt);
   const initial = response.respondentName.trim().charAt(0).toLowerCase() || "?";
 
   useEffect(() => {
-    if (!playing) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    return () => {
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  async function ensureAudioLoaded() {
+    if (!response.audioUrl) {
+      throw new Error("Audio recording is not available for this response.");
+    }
+    if (audioRef.current?.src) return audioRef.current;
+
+    const token = getAuthToken ? await getAuthToken() : null;
+    const headers = new Headers({ Accept: "audio/*" });
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    const res = await fetch(resolveAudioUrl(response.audioUrl), {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new Error(res.status === 404 ? "Audio recording was not found." : "Audio recording could not be loaded.");
+    }
+
+    const audio = audioRef.current;
+    if (!audio) throw new Error("Audio player is not ready.");
+
+    const objectUrl = URL.createObjectURL(await res.blob());
+    if (audioObjectUrlRef.current) URL.revokeObjectURL(audioObjectUrlRef.current);
+    audioObjectUrlRef.current = objectUrl;
+    audio.src = objectUrl;
+    audio.load();
+    return audio;
+  }
+
+  async function togglePlayback() {
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
       return;
     }
 
-    intervalRef.current = setInterval(() => {
-      setPos((p) => {
-        if (p >= response.durationSeconds) {
-          setPlaying(false);
-          return response.durationSeconds;
-        }
-        return p + 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [playing, response.durationSeconds]);
+    setAudioError(null);
+    try {
+      setAudioState((state) => (state === "ready" ? "ready" : "loading"));
+      const audio = await ensureAudioLoaded();
+      await audio.play();
+      setAudioState("ready");
+      setPlaying(true);
+    } catch (error) {
+      setPlaying(false);
+      setAudioState("error");
+      setAudioError(error instanceof Error ? error.message : "Audio recording could not be played.");
+    }
+  }
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-    setPos(Math.round(ratio * response.durationSeconds));
+    const nextPos = Math.round(ratio * response.durationSeconds);
+    if (audioRef.current?.src) audioRef.current.currentTime = nextPos;
+    setPos(nextPos);
   }
 
   return (
@@ -177,8 +239,44 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
           <section className="mt-7 grid grid-cols-3 gap-4">
             <MetaCard icon="clock" label="DURATION" value={response.duration} />
             <MetaCard icon="sparkle" label="SENTIMENT" value={sentimentLabels[response.sentiment]} />
-            <MetaCard icon="check" label="STATUS" value="completed" />
+            <MetaCard icon="check" label="STATUS" value={statusLabels[response.processingStatus]} />
           </section>
+
+          {response.processingError && (
+            <div
+              className="mt-4 flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm"
+              style={{
+                borderColor: "var(--color-danger-zone-border)",
+                background: "var(--color-danger-zone-bg)",
+                color: "var(--color-danger-zone)",
+              }}
+            >
+              <span>{response.processingError}</span>
+              {onRetry && (
+                <button
+                  type="button"
+                  disabled={retrying}
+                  onClick={async () => {
+                    setRetrying(true);
+                    try {
+                      await onRetry();
+                    } finally {
+                      setRetrying(false);
+                    }
+                  }}
+                  className="shrink-0 rounded-md border px-3 py-1.5 font-semibold"
+                  style={{
+                    borderColor: "var(--color-danger-zone-border)",
+                    background: "var(--color-bg-raised)",
+                    color: "var(--color-danger-zone)",
+                    cursor: retrying ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {retrying ? "retrying..." : "retry"}
+                </button>
+              )}
+            </div>
+          )}
 
           <section className="mt-5 flex flex-wrap items-center gap-2">
             {response.tags.map((tag) => (
@@ -208,16 +306,32 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
             className="mt-7 flex h-[105px] items-center rounded-2xl px-5"
             style={{ background: "var(--color-midnight)", color: "var(--color-fg-inverse)" }}
           >
+            <audio
+              ref={audioRef}
+              preload="none"
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onEnded={() => {
+                setPlaying(false);
+                setPos(response.durationSeconds);
+              }}
+              onTimeUpdate={(event) => setPos(Math.floor(event.currentTarget.currentTime))}
+              onLoadedMetadata={(event) => {
+                if (response.durationSeconds === 0) setPos(Math.floor(event.currentTarget.currentTime));
+              }}
+            />
             <button
-              onClick={() => setPlaying((p) => !p)}
+              onClick={togglePlayback}
+              disabled={!response.audioUrl || audioState === "loading"}
               className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.98]"
               style={{
                 background: "var(--color-mango)",
                 border: "none",
                 color: "var(--color-midnight)",
-                cursor: "pointer",
+                cursor: !response.audioUrl || audioState === "loading" ? "not-allowed" : "pointer",
+                opacity: !response.audioUrl ? 0.55 : 1,
               }}
-              aria-label={playing ? "Pause response audio" : "Play response audio"}
+              aria-label={audioState === "loading" ? "Loading response audio" : playing ? "Pause response audio" : "Play response audio"}
             >
               <Icon name={playing ? "pause" : "play"} size={19} stroke={1.8} />
             </button>
@@ -259,6 +373,11 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
               {response.duration.replace("m ", "m  ")}
             </div>
           </section>
+          {audioError && (
+            <p className="mt-2 text-[13px]" style={{ color: "var(--color-fg3)" }}>
+              {audioError}
+            </p>
+          )}
 
           <section className="mt-[54px]">
             <div
@@ -269,7 +388,11 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
             </div>
 
             <div className="flex flex-col gap-7">
-              {response.transcript.map((seg, i) => (
+              {response.transcript.length === 0 ? (
+                <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-fg3)" }}>
+                  Transcript is not available yet. Refresh this survey after processing finishes.
+                </p>
+              ) : response.transcript.map((seg, i) => (
                 <div key={`${seg.t}-${i}`} className="grid gap-7" style={{ gridTemplateColumns: "64px 1fr" }}>
                   <div
                     className="pt-1 text-[15px] tabular-nums"
@@ -306,9 +429,9 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
                       className="leading-relaxed"
                       style={{
                         color: seg.who === "them" ? "var(--color-midnight)" : "var(--color-fg2)",
-                        fontFamily: seg.who === "them" ? "var(--font-display)" : "var(--font-body)",
-                        fontSize: seg.who === "them" ? 24 : 19,
-                        lineHeight: seg.who === "them" ? 1.48 : 1.42,
+                        fontFamily: "var(--font-body)",
+                        fontSize: 22,
+                        lineHeight: 1.5,
                       }}
                     >
                       {seg.text}
@@ -341,7 +464,7 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
               className="text-[19px] leading-relaxed"
               style={{ color: "var(--color-midnight)", fontFamily: "var(--font-body)" }}
             >
-              {response.koelSummary}
+              {response.koelSummary || "Summary is not available yet."}
             </p>
           </section>
         </div>

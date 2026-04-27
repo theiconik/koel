@@ -6,14 +6,15 @@ import StatCard from "@/components/ui/StatCard";
 import SurveyCard from "@/components/ui/SurveyCard";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import { useSurveys } from "@/hooks/useSurveys";
 import { useStats } from "@/hooks/useStats";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useUser();
-  const { surveys } = useSurveys();
-  const { stats } = useStats();
+  const { surveys, loading: surveysLoading, error: surveysError, reload: reloadSurveys } = useSurveys();
+  const { stats, error: statsError, reload: reloadStats } = useStats();
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -38,6 +39,20 @@ export default function DashboardPage() {
       />
 
       <div className="px-9 py-8 flex flex-col gap-7">
+        {(surveysError || statsError) && (
+          <div className="flex items-center justify-between rounded-[10px] border px-4 py-3 text-sm" style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)" }}>
+            <span>{surveysError?.message ?? statsError?.message}</span>
+            <Button
+              variant="outline"
+              onClick={() => {
+                reloadSurveys();
+                reloadStats();
+              }}
+            >
+              Try again
+            </Button>
+          </div>
+        )}
         {/* Stats */}
         {stats && (
           <div className="grid grid-cols-4 gap-4">
@@ -67,7 +82,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3.5">
-            {surveys.map((s) => (
+            {surveysLoading ? (
+              <LoadingAnimation label="Loading surveys" className="col-span-2 py-8" />
+            ) : surveys.map((s) => (
               <SurveyCard
                 key={s.id}
                 survey={s}

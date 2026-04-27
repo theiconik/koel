@@ -22,8 +22,19 @@ export interface Survey {
   avgDuration: string;
   completionRate: string;
   questions: Question[];
+  settings: SurveySettings;
   createdAt: string;
   shareUrl: string;
+}
+
+export interface SurveySettings {
+  responseCap: number | null;
+  language: string;
+  followUpDepth: number;
+  collectRespondentName: boolean;
+  allowAnonymousResponses: boolean;
+  emailTranscript: boolean;
+  closeOnResponseCap: boolean;
 }
 
 export interface Question {
@@ -49,6 +60,9 @@ export interface Response {
   sentiment: Sentiment;
   transcript: TranscriptSegment[];
   koelSummary: string;
+  processingStatus: "pending" | "processing" | "done" | "failed";
+  processingError?: string | null;
+  audioUrl?: string | null;
   createdAt: string;
 }
 
@@ -72,4 +86,48 @@ export interface InsightMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+}
+
+export type VoiceAgentMode = "speaking" | "listening" | "thinking" | "ended" | "error";
+
+export interface VoiceAgentSnapshot {
+  mode: VoiceAgentMode;
+  caption: string;
+  level: number;
+  elapsedSeconds: number;
+  canInterrupt: boolean;
+  conversationId?: string;
+  error?: string;
+}
+
+export interface VoiceAgentSession {
+  getSnapshot: () => VoiceAgentSnapshot;
+  subscribe: (listener: () => void) => () => void;
+  start: () => void;
+  interrupt: () => void;
+  end: () => void;
+  dispose: () => void;
+}
+
+export interface CreateSurveyInput {
+  title: string;
+  description?: string;
+  status?: SurveyStatus;
+  questions: { text: string; order: number }[];
+  settings?: SurveySettings;
+}
+
+export interface ResponseSubmitInput {
+  conversation_id: string;
+  respondent_name?: string | null;
+  respondent_role?: string | null;
+  is_anonymous?: boolean;
+}
+
+export interface VoiceSessionStart {
+  conversationId: string | null;
+  provider: "elevenlabs" | "mock";
+  status: "ready" | "not_configured";
+  signedUrl?: string | null;
+  dynamicVariables?: Record<string, string | number | boolean>;
 }

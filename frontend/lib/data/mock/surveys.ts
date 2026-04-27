@@ -1,5 +1,15 @@
 import type { Survey } from "@/lib/types";
 
+const defaultSettings = {
+  responseCap: null,
+  language: "en",
+  followUpDepth: 2,
+  collectRespondentName: false,
+  allowAnonymousResponses: true,
+  emailTranscript: false,
+  closeOnResponseCap: true,
+};
+
 export const mockSurveys: Survey[] = [
   {
     id: "1",
@@ -29,6 +39,7 @@ export const mockSurveys: Survey[] = [
         topTag: "voice novelty",
       },
     ],
+    settings: defaultSettings,
     createdAt: "2026-04-01T10:00:00Z",
     shareUrl: "https://koel.ai/s/onboarding-v3-mock",
   },
@@ -60,6 +71,7 @@ export const mockSurveys: Survey[] = [
         topTag: "confusion",
       },
     ],
+    settings: defaultSettings,
     createdAt: "2026-04-05T10:00:00Z",
     shareUrl: "https://koel.ai/s/pricing-research-mock",
   },
@@ -78,6 +90,7 @@ export const mockSurveys: Survey[] = [
         order: 1,
       },
     ],
+    settings: defaultSettings,
     createdAt: "2026-04-10T10:00:00Z",
     shareUrl: "https://koel.ai/s/churn-mock",
   },
@@ -109,6 +122,7 @@ export const mockSurveys: Survey[] = [
         topTag: "team workflow",
       },
     ],
+    settings: defaultSettings,
     createdAt: "2026-03-15T10:00:00Z",
     shareUrl: "https://koel.ai/s/q3-advisory-mock",
   },
