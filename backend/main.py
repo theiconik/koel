@@ -20,8 +20,9 @@ configure_logging(level=settings.log_level, fmt=settings.log_format)  # type: ig
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from auth.clerk import refresh_jwks
 from routers import surveys, responses, stats
@@ -62,7 +63,28 @@ app.include_router(responses.router)
 app.include_router(stats.router)
 
 
+# ─── error handling ───────────────────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled request error on %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+
 # ─── health check ────────────────────────────────────────────────────────────
 @app.get("/health", tags=["meta"])
 async def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "corsOrigins": settings.cors_origins_list,
+    }
+
+
+@app.get("/debug/cors", tags=["meta"])
+async def debug_cors(request: Request):
+    return {
+        "origin": request.headers.get("origin"),
+        "corsOrigins": settings.cors_origins_list,
+    }
