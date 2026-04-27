@@ -20,6 +20,8 @@ class ProcessingConfig:
     # ── LLM ──────────────────────────────────────────────────────────────────
     llm_temperature: float = 0.2
     llm_max_tokens: int = 512
+    # Retries are handled by the OpenAI-compatible SDK before provider fallback.
+    llm_max_retries: int = 2
 
     # ── Themes ────────────────────────────────────────────────────────────────
     # Colours assigned to new themes in round-robin order.

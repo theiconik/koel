@@ -6,6 +6,7 @@ import StatCard from "@/components/ui/StatCard";
 import SurveyCard from "@/components/ui/SurveyCard";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import { useSurveys } from "@/hooks/useSurveys";
 import { useStats } from "@/hooks/useStats";
 
@@ -82,9 +83,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-2 gap-3.5">
             {surveysLoading ? (
-              <div className="py-10 text-sm" style={{ color: "var(--color-fg3)" }}>
-                loading surveys...
-              </div>
+              <LoadingAnimation label="Loading surveys" className="col-span-2 py-8" />
             ) : surveys.map((s) => (
               <SurveyCard
                 key={s.id}
