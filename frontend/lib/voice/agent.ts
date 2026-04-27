@@ -1,4 +1,5 @@
-import type { VoiceAgentMode, VoiceAgentSession, VoiceAgentSnapshot } from "@/lib/types";
+import { Conversation, type Conversation as ElevenLabsConversation } from "@elevenlabs/react";
+import type { VoiceAgentMode, VoiceAgentSession, VoiceAgentSnapshot, VoiceSessionStart } from "@/lib/types";
 
 const SCRIPT = [
   "hi - i'm koel. before we get into it, tell me a bit about yourself. what do you do, and how'd you end up trying roshi?",
@@ -155,6 +156,151 @@ export function createMockVoiceAgent(): VoiceAgentSession {
 
   function dispose() {
     clearRuntimeTimers();
+    listeners.clear();
+  }
+
+  return {
+    getSnapshot: () => snapshot,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    start,
+    interrupt,
+    end,
+    dispose,
+  };
+}
+
+export function createElevenLabsVoiceAgent(
+  getSession: () => Promise<VoiceSessionStart>,
+): VoiceAgentSession {
+  let snapshot: VoiceAgentSnapshot = {
+    ...initialVoiceAgentSnapshot,
+    mode: "thinking",
+    caption: "connecting to koel...",
+    canInterrupt: false,
+  };
+  let conversation: ElevenLabsConversation | null = null;
+  let elapsedTimer: ReturnType<typeof setInterval> | undefined;
+  let levelTimer: ReturnType<typeof setInterval> | undefined;
+  const listeners = new Set<() => void>();
+
+  function notify() {
+    listeners.forEach((listener) => listener());
+  }
+
+  function patch(next: Partial<VoiceAgentSnapshot>) {
+    snapshot = { ...snapshot, ...next };
+    notify();
+  }
+
+  function clearTimers() {
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer);
+      elapsedTimer = undefined;
+    }
+    if (levelTimer) {
+      clearInterval(levelTimer);
+      levelTimer = undefined;
+    }
+  }
+
+  function startTimers() {
+    clearTimers();
+    elapsedTimer = setInterval(() => {
+      patch({ elapsedSeconds: snapshot.elapsedSeconds + 1 });
+    }, 1000);
+    levelTimer = setInterval(() => {
+      const level =
+        snapshot.mode === "speaking"
+          ? conversation?.getOutputVolume?.() ?? 0.5
+          : snapshot.mode === "listening"
+            ? conversation?.getInputVolume?.() ?? 0.35
+            : 0.18;
+      patch({ level: clampLevel(level) });
+    }, 120);
+  }
+
+  async function start() {
+    clearTimers();
+    patch({
+      mode: "thinking",
+      caption: "connecting to koel...",
+      level: 0.14,
+      elapsedSeconds: 0,
+      canInterrupt: false,
+      error: undefined,
+    });
+
+    const session = await getSession();
+    if (session.status !== "ready" || !session.signedUrl) {
+      const error = "Voice session provider is not configured yet.";
+      patch({ mode: "error", caption: "connection issue", error });
+      throw new Error(error);
+    }
+
+    conversation = await Conversation.startSession({
+      signedUrl: session.signedUrl,
+      connectionType: "websocket",
+      dynamicVariables: session.dynamicVariables ?? {},
+      onConnect: ({ conversationId }) => {
+        patch({ conversationId, caption: "connected. koel will begin shortly." });
+        startTimers();
+      },
+      onModeChange: ({ mode }) => {
+        patch({
+          mode,
+          caption: mode === "speaking" ? "koel is speaking." : LISTENING_CAPTION,
+          canInterrupt: mode === "speaking",
+        });
+      },
+      onMessage: ({ message, role }) => {
+        if (!message.trim()) return;
+        patch({
+          caption: message,
+          mode: role === "agent" ? "speaking" : "listening",
+          canInterrupt: role === "agent",
+        });
+      },
+      onError: (message) => {
+        patch({ mode: "error", caption: "connection issue", error: message });
+      },
+      onDisconnect: () => {
+        clearTimers();
+        patch({
+          mode: "ended",
+          caption: ENDED_CAPTION,
+          level: 0.08,
+          canInterrupt: false,
+        });
+      },
+    });
+  }
+
+  function interrupt() {
+    if (!conversation || snapshot.mode !== "speaking") return;
+    conversation.sendUserActivity();
+  }
+
+  async function end() {
+    clearTimers();
+    if (conversation?.isOpen()) {
+      await conversation.endSession();
+    }
+    patch({
+      mode: "ended",
+      caption: ENDED_CAPTION,
+      level: 0.08,
+      canInterrupt: false,
+    });
+  }
+
+  function dispose() {
+    clearTimers();
+    if (conversation?.isOpen()) {
+      void conversation.endSession();
+    }
     listeners.clear();
   }
 

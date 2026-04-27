@@ -18,7 +18,7 @@ const STEPS = [
 export default function PublishedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { survey, loading } = useSurvey(id);
+  const { survey, loading, error, reload } = useSurvey(id);
   const [showToast, setShowToast] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
@@ -26,6 +26,17 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
     return (
       <div className="flex-1 flex items-center justify-center" style={{ color: "var(--color-fg3)" }}>
         loading…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: "var(--color-fg3)" }}>
+        <div>{error.message}</div>
+        <Button variant="outline" onClick={reload}>
+          Try again
+        </Button>
       </div>
     );
   }

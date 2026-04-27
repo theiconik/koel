@@ -1,21 +1,25 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import TopBar from "@/components/layout/TopBar";
 import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import { createSurvey } from "@/lib/data";
 import { useSurveys } from "@/hooks/useSurveys";
-import type { Survey } from "@/lib/types";
 
 type Draft = { id: string; text: string };
 const newDraft = (): Draft => ({ id: crypto.randomUUID(), text: "" });
 
 export default function NewSurveyPage() {
   const router = useRouter();
+  const { getToken } = useAuth();
   const { addSurvey } = useSurveys();
   const [title, setTitle] = useState("");
   const [questions, setQuestions] = useState<Draft[]>(() => [newDraft(), newDraft()]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function updateQuestion(id: string, val: string) {
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, text: val } : q)));
@@ -29,26 +33,30 @@ export default function NewSurveyPage() {
     setQuestions((prev) => prev.filter((q) => q.id !== id));
   }
 
-  function handlePublish() {
+  async function handlePublish() {
     if (!title.trim()) return;
-    const id = Date.now().toString();
-    const url = `https://koel.ai/s/${id}-mock`;
-    const survey: Survey = {
-      id,
-      title: title.trim(),
-      description: "",
-      status: "live",
-      responseCount: 0,
-      avgDuration: "—",
-      completionRate: "—",
-      questions: questions
-        .filter((q) => q.text.trim())
-        .map((q, i) => ({ id: `q${i + 1}`, text: q.text.trim(), order: i + 1 })),
-      createdAt: new Date().toISOString(),
-      shareUrl: url,
-    };
-    addSurvey(survey);
-    router.push(`/surveys/${id}/published`);
+    setSaving(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const survey = await createSurvey(
+        {
+          title: title.trim(),
+          description: "",
+          status: "live",
+          questions: questions
+            .filter((q) => q.text.trim())
+            .map((q, i) => ({ text: q.text.trim(), order: i + 1 })),
+        },
+        token,
+      );
+      addSurvey(survey);
+      router.push(`/surveys/${survey.id}/published`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create survey.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -61,8 +69,8 @@ export default function NewSurveyPage() {
             <Button variant="outline" disabled title="Preview is coming soon">
               Preview
             </Button>
-            <Button variant="primary" onClick={handlePublish} disabled={!title.trim()}>
-              Publish
+            <Button variant="primary" onClick={handlePublish} disabled={!title.trim() || saving}>
+              {saving ? "Publishing..." : "Publish"}
             </Button>
           </>
         }
@@ -76,6 +84,14 @@ export default function NewSurveyPage() {
             className="rounded-2xl p-7 border"
             style={{ background: "var(--color-bg-raised)", borderColor: "var(--color-border)" }}
           >
+            {error && (
+              <div
+                className="mb-4 rounded-[10px] border px-3 py-2 text-sm"
+                style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)" }}
+              >
+                {error}
+              </div>
+            )}
             <label
               className="text-sm font-medium block mb-1.5"
               style={{ color: "var(--color-midnight)", fontFamily: "var(--font-body)" }}

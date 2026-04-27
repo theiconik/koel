@@ -22,6 +22,8 @@ export const mockResponses: Response[] = [
       { t: "1:24", who: "koel", text: "did that affect your decision to keep going?" },
       { t: "1:29", who: "them", text: "not really, because your trial made it easy to just try. but it's a friction i'd fix before anyone who's price-sensitive lands on that page." },
     ],
+    processingStatus: "done",
+    processingError: null,
     createdAt: "2026-04-23T08:44:00Z",
   },
   {
@@ -47,6 +49,8 @@ export const mockResponses: Response[] = [
       { t: "2:20", who: "koel", text: "did koel handle the ambiguity the way you hoped?", highlight: true },
       { t: "2:26", who: "them", text: "mostly. there was one moment where it could have gone deeper and didn't. but overall yeah — it felt like a real conversation." },
     ],
+    processingStatus: "done",
+    processingError: null,
     createdAt: "2026-04-19T05:00:00Z",
   },
   {
@@ -70,6 +74,8 @@ export const mockResponses: Response[] = [
       { t: "1:10", who: "koel", text: "what were you hoping koel would do differently from what you've tried before?" },
       { t: "1:15", who: "them", text: "honestly just something that doesn't feel like a chore. typeform always felt like i was building a form for myself, not for the person answering." },
     ],
+    processingStatus: "done",
+    processingError: null,
     createdAt: "2026-04-18T12:00:00Z",
   },
   {
@@ -95,6 +101,8 @@ export const mockResponses: Response[] = [
       { t: "2:40", who: "koel", text: "what would need to be true for you to recommend it to a client?", highlight: true },
       { t: "2:47", who: "them", text: "better export options and a way to share specific clips, not just transcripts. the insight is there, i just need to be able to show it to stakeholders easily." },
     ],
+    processingStatus: "done",
+    processingError: null,
     createdAt: "2026-04-17T10:00:00Z",
   },
 ];

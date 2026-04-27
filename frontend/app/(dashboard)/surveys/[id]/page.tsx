@@ -1,5 +1,6 @@
 "use client";
 import { use, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import TopBar from "@/components/layout/TopBar";
 import Crumbs from "@/components/layout/Crumbs";
 import Button from "@/components/ui/Button";
@@ -11,6 +12,7 @@ import ResponseDrawer from "@/components/ui/ResponseDrawer";
 import ThemesTab from "@/components/surveys/ThemesTab";
 import QuestionsTab from "@/components/surveys/QuestionsTab";
 import SurveySettingsTab from "@/components/surveys/SurveySettingsTab";
+import { retryResponseProcessing } from "@/lib/data";
 import { useSurvey } from "@/hooks/useSurvey";
 import type { Response } from "@/lib/types";
 
@@ -19,7 +21,8 @@ type Tab = (typeof TABS)[number];
 
 export default function SurveyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { survey, responses, themes, loading } = useSurvey(id);
+  const { getToken } = useAuth();
+  const { survey, responses, themes, loading, error, reload, applySurvey } = useSurvey(id);
   const [activeTab, setActiveTab] = useState<Tab>("voices");
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -29,6 +32,17 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
     return (
       <div className="flex-1 flex items-center justify-center" style={{ color: "var(--color-fg3)" }}>
         loading…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: "var(--color-fg3)" }}>
+        <div>{error.message}</div>
+        <Button variant="outline" onClick={reload}>
+          Try again
+        </Button>
       </div>
     );
   }
@@ -44,6 +58,13 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
   function copyLink() {
     navigator.clipboard?.writeText(survey!.shareUrl);
     setShowToast(true);
+  }
+
+  async function retryResponse(response: Response) {
+    const token = await getToken();
+    await retryResponseProcessing(response.surveyId, response.id, token);
+    setActiveResponse(null);
+    reload();
   }
 
   const maxTheme = Math.max(...themes.map((t) => t.count), 1);
@@ -153,7 +174,11 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
                       className="text-xl leading-snug mt-3 tracking-[-0.005em]"
                       style={{ fontFamily: "var(--font-display)", color: "var(--color-midnight)" }}
                     >
-                      &ldquo;{r.quote}&rdquo;
+                      {r.processingStatus === "done"
+                        ? `"${r.quote}"`
+                        : r.processingStatus === "failed"
+                          ? "processing failed - transcript could not be generated."
+                          : "processing response - transcript and themes will appear shortly."}
                     </div>
 
                     <div className="flex gap-1.5 mt-3.5 flex-wrap">
@@ -214,8 +239,10 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
         )}
 
         {activeTab === "themes" && <ThemesTab themes={themes} />}
-        {activeTab === "questions" && <QuestionsTab questions={survey.questions} />}
-        {activeTab === "settings" && <SurveySettingsTab survey={survey} />}
+        {activeTab === "questions" && (
+          <QuestionsTab surveyId={survey.id} questions={survey.questions} onSaved={applySurvey} />
+        )}
+        {activeTab === "settings" && <SurveySettingsTab survey={survey} onSaved={applySurvey} />}
       </div>
 
       {/* Response drawer */}
@@ -224,6 +251,7 @@ export default function SurveyDetailPage({ params }: { params: Promise<{ id: str
           key={activeResponse.id}
           response={activeResponse}
           onClose={() => setActiveResponse(null)}
+          onRetry={activeResponse.processingError ? () => retryResponse(activeResponse) : undefined}
         />
       )}
 

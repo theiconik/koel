@@ -6,6 +6,7 @@ import Icon from "./Icon";
 interface ResponseDrawerProps {
   response: Response;
   onClose: () => void;
+  onRetry?: () => Promise<void>;
 }
 
 const sentimentLabels: Record<Sentiment, string> = {
@@ -15,6 +16,12 @@ const sentimentLabels: Record<Sentiment, string> = {
 };
 
 const BAR_COUNT = 82;
+const statusLabels: Record<Response["processingStatus"], string> = {
+  pending: "pending",
+  processing: "processing",
+  done: "completed",
+  failed: "failed",
+};
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -45,9 +52,10 @@ function speakerLabel(response: Response) {
   return response.respondentName.split(" ")[0].replace(/[^a-z]/gi, "").toUpperCase() || "THEM";
 }
 
-export default function ResponseDrawer({ response, onClose }: ResponseDrawerProps) {
+export default function ResponseDrawer({ response, onClose, onRetry }: ResponseDrawerProps) {
   const [playing, setPlaying] = useState(false);
-  const [pos, setPos] = useState(42);
+  const [pos, setPos] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const participant = useMemo(() => speakerLabel(response), [response]);
   const progress = response.durationSeconds > 0 ? pos / response.durationSeconds : 0;
@@ -177,8 +185,44 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
           <section className="mt-7 grid grid-cols-3 gap-4">
             <MetaCard icon="clock" label="DURATION" value={response.duration} />
             <MetaCard icon="sparkle" label="SENTIMENT" value={sentimentLabels[response.sentiment]} />
-            <MetaCard icon="check" label="STATUS" value="completed" />
+            <MetaCard icon="check" label="STATUS" value={statusLabels[response.processingStatus]} />
           </section>
+
+          {response.processingError && (
+            <div
+              className="mt-4 flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm"
+              style={{
+                borderColor: "var(--color-danger-zone-border)",
+                background: "var(--color-danger-zone-bg)",
+                color: "var(--color-danger-zone)",
+              }}
+            >
+              <span>{response.processingError}</span>
+              {onRetry && (
+                <button
+                  type="button"
+                  disabled={retrying}
+                  onClick={async () => {
+                    setRetrying(true);
+                    try {
+                      await onRetry();
+                    } finally {
+                      setRetrying(false);
+                    }
+                  }}
+                  className="shrink-0 rounded-md border px-3 py-1.5 font-semibold"
+                  style={{
+                    borderColor: "var(--color-danger-zone-border)",
+                    background: "var(--color-bg-raised)",
+                    color: "var(--color-danger-zone)",
+                    cursor: retrying ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {retrying ? "retrying..." : "retry"}
+                </button>
+              )}
+            </div>
+          )}
 
           <section className="mt-5 flex flex-wrap items-center gap-2">
             {response.tags.map((tag) => (
@@ -269,7 +313,11 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
             </div>
 
             <div className="flex flex-col gap-7">
-              {response.transcript.map((seg, i) => (
+              {response.transcript.length === 0 ? (
+                <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-fg3)" }}>
+                  Transcript is not available yet. Refresh this survey after processing finishes.
+                </p>
+              ) : response.transcript.map((seg, i) => (
                 <div key={`${seg.t}-${i}`} className="grid gap-7" style={{ gridTemplateColumns: "64px 1fr" }}>
                   <div
                     className="pt-1 text-[15px] tabular-nums"
@@ -341,7 +389,7 @@ export default function ResponseDrawer({ response, onClose }: ResponseDrawerProp
               className="text-[19px] leading-relaxed"
               style={{ color: "var(--color-midnight)", fontFamily: "var(--font-body)" }}
             >
-              {response.koelSummary}
+              {response.koelSummary || "Summary is not available yet."}
             </p>
           </section>
         </div>

@@ -20,7 +20,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 export default function AllSurveysPage() {
   const router = useRouter();
-  const { surveys } = useSurveys();
+  const { surveys, loading, error, reload } = useSurveys();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -74,8 +74,19 @@ export default function AllSurveysPage() {
       />
 
       <div className="px-9 py-8">
+        {error && (
+          <div className="mb-6 flex items-center justify-between rounded-[10px] border px-4 py-3 text-sm" style={{ borderColor: "var(--color-danger)", color: "var(--color-danger)" }}>
+            <span>{error.message}</span>
+            <Button variant="outline" onClick={reload}>Try again</Button>
+          </div>
+        )}
+        {loading && (
+          <div className="py-16 text-center text-sm" style={{ color: "var(--color-fg3)" }}>
+            loading surveys...
+          </div>
+        )}
         {/* Filter chips */}
-        <div className="flex gap-2 mb-6">
+        {!loading && <div className="flex gap-2 mb-6">
           {FILTERS.map((f) => (
             <button
               key={f.key}
@@ -92,10 +103,10 @@ export default function AllSurveysPage() {
               {f.label} · {counts[f.key]}
             </button>
           ))}
-        </div>
+        </div>}
 
         {/* Survey grid */}
-        {visible.length > 0 ? (
+        {!loading && visible.length > 0 ? (
           <div className="grid grid-cols-2 gap-3.5">
             {visible.map((s) => (
               <SurveyCard
@@ -105,7 +116,7 @@ export default function AllSurveysPage() {
               />
             ))}
           </div>
-        ) : (
+        ) : !loading && (
           <div className="py-16 text-center text-sm" style={{ color: "var(--color-fg3)" }}>
             {query
               ? `nothing matches "${query}" — try a different word.`

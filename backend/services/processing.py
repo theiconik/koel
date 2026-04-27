@@ -12,6 +12,7 @@ created.  Steps:
 """
 
 import logging
+import asyncio
 from db.client import get_client
 from services.elevenlabs import ElevenLabsError, fetch_conversation
 from services.llm import extract_insights
@@ -38,20 +39,31 @@ async def process_response(response_id: str, survey_id: str, conversation_id: st
 
     # ── 2 & 3. fetch transcript from ElevenLabs ──────────────────────────────
     try:
-        el_result = await fetch_conversation(conversation_id)
+        el_result = await _fetch_conversation_when_ready(conversation_id)
         transcript = el_result["transcript_text"]
+        transcript_segments = el_result["transcript_segments"]
         duration_seconds = el_result["duration_seconds"]
 
         db.table("responses").update(
-            {"transcript": transcript, "duration_seconds": duration_seconds}
+            {
+                "transcript": transcript,
+                "transcript_json": transcript_segments,
+                "duration_seconds": duration_seconds,
+                "processing_error": None,
+            }
         ).eq("id", response_id).execute()
     except ElevenLabsError as exc:
         logger.error("ElevenLabs error for response %s: %s", response_id, exc)
-        _mark_failed(db, response_id)
+        _mark_failed(db, response_id, str(exc))
         return
     except Exception as exc:
         logger.error("Unexpected error fetching transcript for %s: %s", response_id, exc)
-        _mark_failed(db, response_id)
+        _mark_failed(db, response_id, "Could not fetch transcript")
+        return
+
+    if not transcript.strip():
+        logger.warning("Response %s has no transcript after polling", response_id)
+        _mark_failed(db, response_id, "Transcript was not available from ElevenLabs yet")
         return
 
     # ── 4. LLM enrichment ────────────────────────────────────────────────────
@@ -59,10 +71,14 @@ async def process_response(response_id: str, survey_id: str, conversation_id: st
         insights = await extract_insights(transcript)
         quote: str = insights.get("quote", "")
         tags: list[str] = insights.get("tags", [])
+        summary: str = insights.get("summary", "")
+        sentiment: str = insights.get("sentiment", "neutral")
     except Exception as exc:
         logger.error("LLM error for response %s: %s", response_id, exc)
-        _mark_failed(db, response_id)
-        return
+        quote, tags, summary, sentiment = _fallback_insights(transcript, transcript_segments)
+        processing_error = "AI summary generation failed; transcript was preserved"
+    else:
+        processing_error = None
 
     # ── 5. persist enriched data ─────────────────────────────────────────────
     try:
@@ -70,12 +86,15 @@ async def process_response(response_id: str, survey_id: str, conversation_id: st
             {
                 "quote": quote,
                 "tags": tags,
+                "summary": summary,
+                "sentiment": sentiment,
                 "processing_status": "done",
+                "processing_error": processing_error,
             }
         ).eq("id", response_id).execute()
     except Exception as exc:
         logger.error("Failed to update enriched data for %s: %s", response_id, exc)
-        _mark_failed(db, response_id)
+        _mark_failed(db, response_id, "Could not save processed response")
         return
 
     # ── 6. upsert theme counts ───────────────────────────────────────────────
@@ -88,10 +107,50 @@ async def process_response(response_id: str, survey_id: str, conversation_id: st
     logger.info("Response %s processed successfully", response_id)
 
 
-def _mark_failed(db, response_id: str) -> None:
+async def _fetch_conversation_when_ready(conversation_id: str) -> dict:
+    last_result: dict | None = None
+    for attempt in range(1, processing.transcript_poll_attempts + 1):
+        result = await fetch_conversation(conversation_id)
+        last_result = result
+        has_transcript = bool(result.get("transcript_segments"))
+        status = result.get("status")
+        if has_transcript or status == "done":
+            return result
+        if status == "failed":
+            raise ElevenLabsError("ElevenLabs conversation processing failed")
+        logger.info(
+            "Conversation %s transcript not ready yet (status=%s, attempt=%d/%d)",
+            conversation_id,
+            status,
+            attempt,
+            processing.transcript_poll_attempts,
+        )
+        await asyncio.sleep(processing.transcript_poll_delay_seconds)
+
+    if last_result is None:
+        raise ElevenLabsError("No ElevenLabs response received")
+    return last_result
+
+
+def _fallback_insights(transcript: str, transcript_segments: list[dict]) -> tuple[str, list[str], str, str]:
+    quote = next(
+        (
+            segment["text"]
+            for segment in transcript_segments
+            if segment.get("who") == "them" and segment.get("text")
+        ),
+        "",
+    )
+    if not quote:
+        quote = transcript.splitlines()[0].partition(":")[2].strip() if transcript else ""
+    summary = "Transcript captured. AI summary generation failed and can be retried later."
+    return quote, [], summary, "neutral"
+
+
+def _mark_failed(db, response_id: str, message: str) -> None:
     try:
         db.table("responses").update(
-            {"processing_status": "failed"}
+            {"processing_status": "failed", "processing_error": message}
         ).eq("id", response_id).execute()
     except Exception as exc:
         logger.error("Could not mark response %s as failed: %s", response_id, exc)
