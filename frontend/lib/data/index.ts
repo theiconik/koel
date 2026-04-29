@@ -1,6 +1,7 @@
 import type {
   CreateSurveyInput,
   DashboardStats,
+  InsightChatResponse,
   Response,
   ResponseSubmitInput,
   Survey,
@@ -179,6 +180,35 @@ export async function submitResponse(
 export async function startVoiceSession(slug: string): Promise<VoiceSessionStart> {
   if (useMock) return { conversationId: null, provider: "mock", status: "ready" };
   return apiFetch<VoiceSessionStart>(`/surveys/share/${encodeURIComponent(slug)}/voice-session`, { method: "POST" });
+}
+
+export async function askSurveyInsights(
+  surveyId: string,
+  message: string,
+  token?: string | null,
+): Promise<InsightChatResponse> {
+  if (useMock) {
+    const responses = mockResponses.filter((r) => r.surveyId === surveyId);
+    if (responses.length === 0) {
+      return { answer: "No responses for this survey yet.", route: "rag" };
+    }
+    const positive = responses.filter((r) => r.sentiment === "delighted").length;
+    if (/how many|count|percentage|percent|positive|positively/i.test(message)) {
+      return {
+        answer: `${positive} of ${responses.length} responses were positive in the demo data.`,
+        route: "analytics",
+      };
+    }
+    return {
+      answer: responses[0].koelSummary || "The demo responses point to a few recurring themes, but the real insights chat is available in API mode.",
+      route: "rag",
+    };
+  }
+  return apiFetch<InsightChatResponse>(`/surveys/${surveyId}/insights/chat`, {
+    method: "POST",
+    token,
+    body: { message },
+  });
 }
 
 export async function getStats(token?: string | null): Promise<DashboardStats> {

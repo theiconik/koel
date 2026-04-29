@@ -16,6 +16,7 @@ import asyncio
 from db.client import get_client
 from services.elevenlabs import ElevenLabsError, fetch_conversation
 from services.llm import extract_insights
+from services.response_index import index_response
 from config.processing import processing
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,11 @@ async def process_response(response_id: str, survey_id: str, conversation_id: st
         logger.warning("Theme upsert failed for survey %s: %s", survey_id, exc)
 
     logger.info("Response %s processed successfully", response_id)
+
+    try:
+        await index_response(response_id=response_id, survey_id=survey_id)
+    except Exception as exc:
+        logger.warning("Response %s processed but could not be indexed: %s", response_id, exc)
 
 
 async def _fetch_conversation_when_ready(conversation_id: str) -> dict:

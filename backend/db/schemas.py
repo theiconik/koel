@@ -124,6 +124,17 @@ class VoiceSessionOut(BaseModel):
     dynamicVariables: dict[str, str | int | bool] = Field(default_factory=dict)
 
 
+# ─── insights chat ───────────────────────────────────────────────────────────
+
+class InsightsChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class InsightsChatResponse(BaseModel):
+    answer: str
+    route: Literal["rag", "analytics", "hybrid"]
+
+
 # ─── theme ───────────────────────────────────────────────────────────────────
 
 class ThemeOut(BaseModel):

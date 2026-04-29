@@ -25,7 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from auth.clerk import refresh_jwks
-from routers import surveys, responses, stats
+from routers import insights, surveys, responses, stats
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ app.add_middleware(
 # ─── routers ─────────────────────────────────────────────────────────────────
 app.include_router(surveys.router)
 app.include_router(responses.router)
+app.include_router(insights.router)
 app.include_router(stats.router)
 
 

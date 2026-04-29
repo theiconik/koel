@@ -20,6 +20,7 @@ class ProcessingConfig:
     # ── LLM ──────────────────────────────────────────────────────────────────
     llm_temperature: float = 0.2
     llm_max_tokens: int = 512
+    insights_answer_max_tokens: int = 100
     # Retries are handled by the OpenAI-compatible SDK before provider fallback.
     llm_max_retries: int = 2
 
@@ -40,6 +41,11 @@ class ProcessingConfig:
     # Maximum number of tags the LLM should produce per response.
     # Passed as a hint in the prompt; actual enforcement is on the LLM.
     max_tags_per_response: int = 4
+
+    # ── RAG / embeddings ─────────────────────────────────────────────────────
+    embedding_dimensions: int = 768
+    rag_match_count: int = 5
+    rag_min_similarity: float = 0.25
 
 
 # Module-level singleton

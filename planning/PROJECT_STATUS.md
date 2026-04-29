@@ -4,7 +4,7 @@ Date: 2026-04-27
 
 ## Summary
 
-Koel is now stitched into a working V1 survey workflow across the mock-first Next.js frontend and FastAPI backend. The application supports creator-owned survey creation/list/detail, public respondent links at `/s/{short_id}`, signed ElevenLabs voice sessions, response submission, transcript processing, LLM enrichment, generated themes, editable questions, and persisted settings.
+Koel is now stitched into a working V1 survey workflow across the mock-first Next.js frontend and FastAPI backend. The application supports creator-owned survey creation/list/detail, public respondent links at `/s/{short_id}`, signed ElevenLabs voice sessions, response submission, transcript processing, LLM enrichment, generated themes, editable questions, persisted settings, and a survey-scoped insights chat backed by response embeddings.
 
 Real API mode no longer silently falls back to mock data. Mock data is used only when `NEXT_PUBLIC_USE_MOCK !== "false"`.
 
@@ -17,6 +17,7 @@ Real API mode no longer silently falls back to mock data. Mock data is used only
 - Voice SDK: `@elevenlabs/react`
 - Data boundary: `frontend/lib/data/index.ts`
 - Voice adapter boundary: `frontend/lib/voice/agent.ts`
+- Insights chat: `frontend/app/(dashboard)/insights/page.tsx`
 - Main route groups:
   - Dashboard: `frontend/app/(dashboard)`
   - Respondent: `frontend/app/(respondent)/s/[slug]`
@@ -31,13 +32,17 @@ Real API mode no longer silently falls back to mock data. Mock data is used only
   - `backend/routers/surveys.py`
   - `backend/routers/responses.py`
   - `backend/routers/stats.py`
+  - `backend/routers/insights.py`
 - Services:
   - ElevenLabs signed sessions and transcript fetch: `backend/services/elevenlabs.py`
   - OpenRouter insight extraction: `backend/services/llm.py`
   - Response processing pipeline: `backend/services/processing.py`
+  - Response chunk indexing and RAG retrieval: `backend/services/response_index.py`
+  - Survey insights routing/answer orchestration: `backend/services/insights_chat.py`
 - Migrations:
   - `backend/db/migrations/001_init.sql`
   - `backend/db/migrations/002_v1_workflow.sql`
+  - `backend/db/migrations/003_insights_rag.sql`
 
 ## Implemented Workflow
 
@@ -55,7 +60,8 @@ Real API mode no longer silently falls back to mock data. Mock data is used only
 12. Backend creates a pending response and starts async processing.
 13. Processing polls ElevenLabs until transcript data is ready, persists transcript/duration, then calls OpenRouter for quote/tags/summary/sentiment.
 14. If OpenRouter fails or rate-limits, transcript/duration still remain available with a fallback summary and processing error.
-15. Creator sees responses, transcript details, themes, questions, and settings in the dashboard.
+15. Processed responses are indexed into pgvector chunks using Gemini `gemini-embedding-001`.
+16. Creator sees responses, transcript details, themes, questions, settings, and survey-scoped insights chat in the dashboard.
 
 ## Backend API Surface
 
@@ -69,6 +75,7 @@ Real API mode no longer silently falls back to mock data. Mock data is used only
 - `GET /surveys/{survey_id}/responses`
 - `POST /surveys/{survey_id}/responses/{response_id}/retry`
 - `GET /surveys/{survey_id}/themes`
+- `POST /surveys/{survey_id}/insights/chat`
 - `GET /stats`
 
 All creator endpoints require Clerk auth and enforce survey ownership.
@@ -147,6 +154,10 @@ ELEVENLABS_ENVIRONMENT=production
 
 OPENROUTER_API_KEY=your-openrouter-api-key
 OPENROUTER_MODEL=openai/gpt-4o-mini
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 
 APP_URL=http://localhost:3000
 CORS_ORIGINS=http://localhost:3000
@@ -185,6 +196,18 @@ The ElevenLabs agent prompt should reference these variables directly, for examp
 
 Koel currently uses the agent's default system prompt and first message configured in ElevenLabs. The app does not override prompt or first message at session start.
 
+## Insights Chat / RAG
+
+The insights chat is survey-scoped. It first routes questions with deterministic rules:
+
+- structured analytics for counts, percentages, sentiment breakdowns, and top tags
+- RAG for qualitative "what/why/summarize" questions
+- hybrid for questions that need both, such as "how many were positive and why?"
+
+If the rule router is uncertain, it falls back to an LLM classifier that chooses only the tool path. Final answers are generated from database counts and/or retrieved response chunks, not from classifier output.
+
+Response chunks are written after transcript processing succeeds. If a survey has no responses, the chat returns "No responses for this survey yet." If responses exist but no chunks have been indexed, it returns "The responses have not been indexed yet. Please try again after some time."
+
 ## Known Limitations
 
 - Audio playback in the response drawer is still simulated; no real audio URL is persisted or played.
@@ -192,6 +215,7 @@ Koel currently uses the agent's default system prompt and first message configur
 - Manual tag editing is UI-only.
 - Theme summaries and representative quotes are not deeply generated yet; tag counts are the reliable V1 path.
 - Response processing runs in FastAPI `BackgroundTasks`; a production queue would be more durable.
+- Existing responses created before migration `003_insights_rag.sql` need a backfill/retry path before they appear in insights chat retrieval.
 - OpenRouter free/upstream models may rate-limit. When this happens, transcript still persists and a retry button is available.
 - Email transcript preference is stored but email sending is not implemented.
 - Delete survey UI exists, but destructive backend deletion is not wired.
@@ -218,7 +242,11 @@ python3 -m py_compile \
   backend/routers/stats.py \
   backend/services/processing.py \
   backend/services/elevenlabs.py \
+  backend/services/embeddings.py \
+  backend/services/response_index.py \
+  backend/services/insights_chat.py \
   backend/services/llm.py \
+  backend/routers/insights.py \
   backend/db/schemas.py \
   backend/config/settings.py \
   backend/config/processing.py

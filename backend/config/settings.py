@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     openrouter_model: str = "openai/gpt-4o-mini"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    gemini_embedding_model: str = "gemini-embedding-001"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    gemini_native_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
 
     # ── App / server ──────────────────────────────────────────────────────────
     # Base URL of the Next.js frontend; used to build shareUrl in survey responses

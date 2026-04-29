@@ -26,3 +26,43 @@ Rules:
 """
 
 EXTRACT_INSIGHTS_USER = "Transcript:\n\n{transcript}"
+
+
+# ─── Survey insights chat ────────────────────────────────────────────────────
+
+INSIGHTS_CLASSIFIER_SYSTEM = """\
+You route creator questions about voice survey responses.
+Return valid JSON only with this shape:
+{
+  "route": "rag" | "analytics" | "hybrid",
+  "sentiment": "delighted" | "neutral" | "frustrated" | null
+}
+
+Rules:
+- analytics: exact counts, percentages, totals, top tags, or sentiment breakdowns
+- rag: qualitative questions asking what people said, why, examples, themes, objections, or summaries
+- hybrid: asks for an exact metric and qualitative explanation
+- Map positive/happy/loved/satisfied to delighted
+- Map negative/unhappy/complained/frustrated to frustrated
+- Map mixed/okay/indifferent to neutral\
+"""
+
+INSIGHTS_CLASSIFIER_USER = "Question:\n\n{question}"
+
+INSIGHTS_ANSWER_SYSTEM = """\
+You are an excellent insights analyst. Summarize the core information from the
+relevant survey response chunks into a polished answer. Use only the provided
+chunks. Do not cite individual chunks or mention retrieval. Keep the answer to
+60 words or fewer. If the chunks do not answer the question, say there is not
+enough evidence yet.\
+"""
+
+INSIGHTS_ANSWER_USER = """\
+Question by user:
+{question}
+
+Relevant chunks retrieved:
+{context}
+
+Clean answer:
+"""

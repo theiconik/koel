@@ -88,6 +88,11 @@ export interface InsightMessage {
   text: string;
 }
 
+export interface InsightChatResponse {
+  answer: string;
+  route: "rag" | "analytics" | "hybrid";
+}
+
 export type VoiceAgentMode = "speaking" | "listening" | "thinking" | "ended" | "error";
 
 export interface VoiceAgentSnapshot {

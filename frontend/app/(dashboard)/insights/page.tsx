@@ -1,9 +1,11 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
 import Image from "next/image";
 import TopBar from "@/components/layout/TopBar";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import { askSurveyInsights } from "@/lib/data";
 import { useSurveys } from "@/hooks/useSurveys";
 import type { InsightMessage, Survey } from "@/lib/types";
 
@@ -173,6 +175,7 @@ function ChatColumn({
               }
             }}
             placeholder={selected ? `ask about "${selected.title}"…` : "select a survey…"}
+            disabled={!selected || sending}
             rows={1}
             className="flex-1 border-none outline-none resize-none text-[15px] leading-[1.4] py-0 my-0 block"
             style={{
@@ -186,13 +189,13 @@ function ChatColumn({
           />
           <button
             onClick={onSend}
-            disabled={!input.trim() || sending}
+            disabled={!selected || !input.trim() || sending}
             className="w-7 h-7 rounded-[8px] flex items-center justify-center shrink-0 transition-colors"
             style={{
-              background: input.trim() ? "var(--color-midnight)" : "var(--color-border)",
-              color: input.trim() ? "var(--color-fg-inverse)" : "var(--color-fg3)",
+              background: selected && input.trim() ? "var(--color-midnight)" : "var(--color-border)",
+              color: selected && input.trim() ? "var(--color-fg-inverse)" : "var(--color-fg3)",
               border: "none",
-              cursor: input.trim() ? "pointer" : "default",
+              cursor: selected && input.trim() ? "pointer" : "default",
             }}
           >
             <Icon name="send" size={16} />
@@ -205,6 +208,7 @@ function ChatColumn({
 
 export default function InsightsPage() {
   const { surveys } = useSurveys();
+  const { getToken } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<InsightMessage[]>([]);
   const [input, setInput] = useState("");
@@ -236,13 +240,19 @@ export default function InsightsPage() {
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || !selectedId) return;
     setMessages((prev) => [...prev, newMsg("user", text)]);
     setInput("");
     setSending(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setMessages((prev) => [...prev, newMsg("assistant", ERROR_MSG)]);
-    setSending(false);
+    try {
+      const token = await getToken();
+      const result = await askSurveyInsights(selectedId, text, token);
+      setMessages((prev) => [...prev, newMsg("assistant", result.answer)]);
+    } catch {
+      setMessages((prev) => [...prev, newMsg("assistant", ERROR_MSG)]);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
