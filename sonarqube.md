@@ -19,6 +19,10 @@ For GitHub Actions, configure:
 - Repository secret `SONAR_TOKEN`
 - Repository variable `SONAR_HOST_URL`, for example `https://sonarqube.example.com`
 
+`SONAR_HOST_URL` must be reachable from the GitHub Actions runner. A local
+`http://localhost:9000` SonarQube instance only works with a self-hosted runner
+running on the same machine or network.
+
 ## Local Browser Dashboard
 
 Run SonarQube locally:
