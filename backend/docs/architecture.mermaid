@@ -1,0 +1,77 @@
+flowchart TB
+  Browser["Next.js frontend"]
+  API["FastAPI app\nmain.py"]
+  Middleware["Middleware\nCORS + X-Request-ID + OTel"]
+  Auth["Clerk auth\nJWKS + issuer + aud/azp"]
+
+  Surveys["surveys router\ncreator + public survey flows"]
+  Responses["responses router\nsubmit/list/retry/audio/theme flows"]
+  Insights["insights router\nsurvey chat"]
+  Stats["stats router\ndashboard summary"]
+
+  Supabase[("Supabase Postgres\nsurveys/questions/responses/themes/response_chunks/jobs")]
+  RPC["Postgres RPCs\natomic submit/retry/survey/question/chunk/theme ops"]
+  Queue[("response_processing_jobs")]
+  Worker["process_response_jobs.py\nleased durable worker"]
+
+  Processing["processing service\ntranscript + LLM + indexing outcomes"]
+  ElevenLabs["ElevenLabs\nconversation + audio"]
+  LLM["LLM providers\nOpenRouter + Gemini fallback"]
+  Embeddings["Gemini embeddings\n768-dim vectors"]
+  Index["response_index service\nQA chunks + atomic replacement"]
+  Chat["insights_chat service\nrules + analytics + RAG"]
+  OTel["OpenTelemetry exporter\nconsole or OTLP HTTP"]
+  Logs["Structured logs\nrequest/job/trace context"]
+
+  Browser -->|"HTTP / X-Request-ID"| API
+  API --> Middleware
+  Middleware --> Logs
+  Middleware --> OTel
+
+  API --> Surveys
+  API --> Responses
+  API --> Insights
+  API --> Stats
+
+  Surveys --> Auth
+  Responses --> Auth
+  Insights --> Auth
+  Stats --> Auth
+
+  Auth -->|"JWKS fetch"| Clerk["Clerk JWKS"]
+
+  Surveys --> Supabase
+  Surveys --> RPC
+  Responses --> RPC
+  Responses --> Supabase
+  Insights --> Chat
+  Stats --> Supabase
+
+  RPC --> Supabase
+  RPC --> Queue
+  Worker -->|"claim with FOR UPDATE SKIP LOCKED"| Queue
+  Worker --> Processing
+  Processing --> ElevenLabs
+  Processing --> LLM
+  Processing --> Index
+  Processing --> RPC
+  Processing -->|"done/retry/failed"| Worker
+  Worker -->|"finish/requeue with backoff"| RPC
+
+  Index --> Embeddings
+  Index --> RPC
+  Chat --> Supabase
+  Chat --> Index
+  Chat --> LLM
+
+  classDef external fill:#f6f0ff,stroke:#7c3aed,color:#111827;
+  classDef api fill:#eef6ff,stroke:#2563eb,color:#111827;
+  classDef db fill:#ecfdf5,stroke:#059669,color:#111827;
+  classDef worker fill:#fff7ed,stroke:#ea580c,color:#111827;
+  classDef obs fill:#f8fafc,stroke:#64748b,color:#111827;
+
+  class Browser,Clerk,ElevenLabs,LLM,Embeddings external;
+  class API,Middleware,Auth,Surveys,Responses,Insights,Stats,Chat,Processing,Index api;
+  class Supabase,RPC,Queue db;
+  class Worker worker;
+  class OTel,Logs obs;

@@ -6,6 +6,7 @@ import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import { isMockMode, startVoiceSession, submitResponse } from "@/lib/data";
+import { logger } from "@/lib/observability/logger";
 import type { Survey, VoiceAgentMode, VoiceAgentSnapshot } from "@/lib/types";
 import { createElevenLabsVoiceAgent, createMockVoiceAgent } from "@/lib/voice/agent";
 
@@ -63,7 +64,13 @@ function RespFooter() {
   return (
     <footer className="px-7 py-5 text-xs text-fg3 text-center border-t border-midnight/5">
       powered by <span className="text-midnight font-semibold">koel</span> · your voice is encrypted ·{" "}
-      <button type="button" className="underline cursor-pointer">
+      <button
+        type="button"
+        disabled
+        aria-disabled="true"
+        title="Privacy details are not available yet"
+        className="underline cursor-not-allowed opacity-50"
+      >
         privacy
       </button>
     </footer>
@@ -91,7 +98,13 @@ function Landing({ survey, onStart }: { survey: Survey; onStart: () => void }) {
           <Button variant="primary" onClick={onStart} className="rounded-full px-[26px] py-[14px] text-[15px]">
             start survey <Icon name="chevronRight" size={16} />
           </Button>
-          <Button variant="outline" className="rounded-full px-[25px] py-[13px] text-[15px]">
+          <Button
+            variant="outline"
+            disabled
+            aria-disabled="true"
+            title="Voice data details are not available yet"
+            className="rounded-full px-[25px] py-[13px] text-[15px]"
+          >
             read what we do with your voice
           </Button>
         </div>
@@ -406,7 +419,7 @@ function Thanks({ onRestart }: { onRestart: () => void }) {
             {[
               "your audio is encrypted and sent to the team.",
               "koel transcribes and organizes it alongside other voices.",
-              "you'll get a copy of the transcript by email if you want one.",
+              "the team reviews the transcript alongside the original conversation.",
             ].map((item, index) => (
               <div key={item} className="flex gap-2.5 text-sm text-midnight leading-[1.5]">
                 <span className="font-display text-mango shrink-0">{String(index + 1).padStart(2, "0")}</span>
@@ -417,7 +430,13 @@ function Thanks({ onRestart }: { onRestart: () => void }) {
         </div>
 
         <div className="flex gap-2.5 justify-center flex-wrap">
-          <Button variant="outline" className="rounded-full px-[25px] py-[13px] text-[15px]">
+          <Button
+            variant="outline"
+            disabled
+            aria-disabled="true"
+            title="Transcript email is not available yet"
+            className="rounded-full px-[25px] py-[13px] text-[15px]"
+          >
             email me a transcript
           </Button>
           <Button variant="ghost" onClick={onRestart} className="rounded-full px-5 py-[13px] text-[15px]">
@@ -433,12 +452,13 @@ export default function RespondentSurveyClient({ survey, slug }: { survey: Surve
   const [stage, setStage] = useState<Stage>("landing");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const mockMode = useMemo(() => isMockMode(), []);
   const agent = useMemo(
     () =>
-      isMockMode()
+      mockMode
         ? createMockVoiceAgent()
         : createElevenLabsVoiceAgent(() => startVoiceSession(slug)),
-    [slug],
+    [mockMode, slug],
   );
   const snapshot = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getSnapshot);
 
@@ -446,12 +466,35 @@ export default function RespondentSurveyClient({ survey, slug }: { survey: Surve
     return () => agent.dispose();
   }, [agent]);
 
+  function voiceLogContext(current: VoiceAgentSnapshot = agent.getSnapshot()) {
+    return {
+      slug,
+      provider: current.provider ?? (mockMode ? "mock" : "elevenlabs"),
+      mode: current.mode,
+    };
+  }
+
+  function errorForLog(error: unknown) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+
+  function mockConversationId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `mock-${crypto.randomUUID()}`;
+    }
+    return `mock-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
   async function startConversation() {
     setSubmitError(null);
     try {
       await agent.start();
       setStage("chatting");
     } catch (e) {
+      logger.error("voice_session_start_failed", {
+        ...voiceLogContext(),
+        error: errorForLog(e),
+      });
       setSubmitError(e instanceof Error ? e.message : "Could not start the voice session.");
     }
   }
@@ -469,12 +512,41 @@ export default function RespondentSurveyClient({ survey, slug }: { survey: Surve
     setSubmitError(null);
     try {
       await agent.end();
+    } catch (e) {
+      logger.error("voice_session_end_failed", {
+        ...voiceLogContext(),
+        error: errorForLog(e),
+      });
+      setSubmitError("Could not end the voice session. Please try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    const endedSnapshot = agent.getSnapshot();
+    const conversationId = endedSnapshot.conversationId ?? (mockMode ? mockConversationId() : null);
+
+    if (!conversationId) {
+      const error = new Error("Voice conversation id was unavailable after ending.");
+      logger.error("voice_response_missing_conversation_id", {
+        ...voiceLogContext(endedSnapshot),
+        error,
+      });
+      setSubmitError("We could not confirm your voice session. Please restart the survey and try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    try {
       await submitResponse(slug, {
-        conversation_id: snapshot.conversationId ?? `manual-${Date.now()}`,
+        conversation_id: conversationId,
         is_anonymous: true,
       });
       setStage("thanks");
     } catch (e) {
+      logger.error("voice_response_submit_failed", {
+        ...voiceLogContext(endedSnapshot),
+        error: errorForLog(e),
+      });
       setSubmitError(e instanceof Error ? e.message : "Could not submit your response.");
     } finally {
       setSubmitting(false);
@@ -482,7 +554,12 @@ export default function RespondentSurveyClient({ survey, slug }: { survey: Surve
   }
 
   function restart() {
-    agent.end();
+    void Promise.resolve().then(() => agent.end()).catch((e) => {
+      logger.error("voice_session_restart_end_failed", {
+        ...voiceLogContext(),
+        error: errorForLog(e),
+      });
+    });
     setStage("landing");
   }
 

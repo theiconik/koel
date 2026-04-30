@@ -123,7 +123,7 @@ export function createMockVoiceAgent(): VoiceAgentSession {
     turn = 0;
     tick = 0;
     started = true;
-    snapshot = { ...initialVoiceAgentSnapshot, conversationId: `mock-${Date.now()}` };
+    snapshot = { ...initialVoiceAgentSnapshot, conversationId: `mock-${Date.now()}`, provider: "mock" };
     notify();
 
     elapsedTimer = setInterval(() => {
@@ -234,6 +234,7 @@ export function createElevenLabsVoiceAgent(
     });
 
     const session = await getSession();
+    patch({ provider: session.provider });
     if (session.status !== "ready" || !session.signedUrl) {
       const error = "Voice session provider is not configured yet.";
       patch({ mode: "error", caption: "connection issue", error });

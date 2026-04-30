@@ -9,13 +9,16 @@ app/              Next.js App Router pages
 components/
   layout/         shell components: Sidebar, TopBar, Crumbs, AppBrand
   ui/             reusable primitives: Button, Icon, StatCard, SurveyCard, etc.
+  observability/  non-visual mounts (e.g. Sentry init bootstrap)
   marketing/      landing page components
 contexts/         React context + provider (e.g. SurveysContext)
 hooks/            custom hooks that wrap data fetching or browser APIs
 lib/
   data/           data-access layer (apiFetch + mock toggle)
   data/mock/      static mock fixtures
+  observability/  client logger + Sentry bootstrap (`logger.ts`, `client.ts`)
   types/          shared TypeScript interfaces
+  utils/          small standalone helpers (e.g. stable survey fingerprint strings)
 ```
 
 ## Server vs. Client Components
@@ -50,5 +53,13 @@ lib/
 
 ## Data Fetching
 
-- Data functions live in `lib/data/index.ts`. Pages/components call these functions — no raw `fetch` scattered in components.
-- Mock mode is on by default (see `wiring-with-mock-data.md`).
+- Data functions live in `lib/data/index.ts`. Pages/components call these functions — avoid raw `fetch` in UI code.
+- **Mock mode** is **opt-in** (`NEXT_PUBLIC_USE_MOCK=true`). Omit the variable or set it `false` in production builds so the UI talks to `NEXT_PUBLIC_API_BASE_URL`.
+- **`useAuthResource`** (`hooks/useAuthResource.ts`) is the shared Clerk token + **`AbortSignal`** primitive for authenticated GET flows (used by **`SurveysProvider`** via `getSurveys` and **`useStats`**).
+- **`useSurvey(id)`** bundles parallel survey / responses / theme loads with **`surveyListFingerprint`** from `lib/utils/surveyFingerprint.ts` so unrelated changes to `surveys` in context do not re-fetch the detail page.
+
+
+## Observability
+
+- Prefer **`logger.error` / `logger.warn`** from `lib/observability/logger.ts` over empty `catch` blocks. Failed `fetch` responses log **`requestId`** from **`x-request-id` / `X-Request-ID`** headers when present.
+- Set **`NEXT_PUBLIC_SENTRY_DSN`** to initialize **Sentry Browser** lazily (`lib/observability/client.ts` + `components/observability/ObservabilityBootstrap` in root layout).

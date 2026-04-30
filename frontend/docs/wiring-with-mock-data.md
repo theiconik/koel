@@ -5,10 +5,12 @@
 `lib/data/index.ts` checks `NEXT_PUBLIC_USE_MOCK` at module load:
 
 ```ts
-const useMock = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
+const useMock = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 ```
 
-When `useMock` is `true` (the default), every data function returns static fixtures instead of hitting the API. The backend is not needed.
+When `useMock` is `true`, every data function returns static fixtures instead of hitting the API. **By default** (env unset) the app talks to the **real API** — set `NEXT_PUBLIC_USE_MOCK=true` only when you want fixtures with no backend.
+
+A **console warning** is printed at module load whenever mock mode is on.
 
 ## Mock fixtures
 
@@ -25,9 +27,7 @@ Edit these files to change what the UI renders during development.
 ## Switching to real API
 
 1. Set `NEXT_PUBLIC_API_BASE_URL=https://your-api` in `.env.local`
-2. Set `NEXT_PUBLIC_USE_MOCK=false`
-
-The data functions will now call `apiFetch` which hits `${baseUrl}/surveys`, `/surveys/:id/responses`, etc.
+2. Omit `NEXT_PUBLIC_USE_MOCK` or set it to anything other than `true` (e.g. unset or `false`)
 
 ## Adding a new data function
 

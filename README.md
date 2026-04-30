@@ -53,6 +53,8 @@ See `frontend/docs/building-the-project.md` for frontend setup, env vars, and sc
 
 See `backend/docs/building-the-project.md` for backend setup, env vars, and scripts.
 
+See `sonarqube.md` for the combined frontend/backend SonarQube analysis setup.
+
 ## Where to look first
 
 **For AI agents and new developers — read in this order:**

@@ -9,6 +9,7 @@ import LoadingAnimation from "@/components/ui/LoadingAnimation";
 import Toast from "@/components/ui/Toast";
 import ShareModal from "@/components/ui/ShareModal";
 import { useSurvey } from "@/hooks/useSurvey";
+import { logger } from "@/lib/observability/logger";
 
 const STEPS = [
   { n: "01", title: "share the link", desc: "email, slack, dm — wherever your people are." },
@@ -22,6 +23,7 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
   const { survey, loading, error, reload } = useSurvey(id);
   const [showToast, setShowToast] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -48,9 +50,27 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  function copyLink() {
-    navigator.clipboard?.writeText(survey!.shareUrl);
-    setShowToast(true);
+  const surveyId = survey.id;
+  const shareUrl = survey.shareUrl;
+
+  async function copyLink() {
+    setCopyError(null);
+    setShowToast(false);
+    if (!navigator.clipboard?.writeText) {
+      const error = new Error("Clipboard API is not available.");
+      logger.error("published_survey_link_copy_failed", { error, surveyId });
+      setCopyError("Could not copy link. Select and copy it manually.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShowToast(true);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error("Clipboard write failed.");
+      logger.error("published_survey_link_copy_failed", { error: err, surveyId });
+      setCopyError("Could not copy link. Select and copy it manually.");
+    }
   }
 
   return (
@@ -107,7 +127,7 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
                 className="text-[13px] truncate"
                 style={{ fontFamily: "var(--font-mono)", color: "var(--color-midnight)" }}
               >
-                {survey.shareUrl}
+                {shareUrl}
               </span>
             </div>
             <Button variant="outline" onClick={copyLink}>
@@ -117,6 +137,15 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
               Share
             </Button>
           </div>
+          {copyError && (
+            <p
+              role="alert"
+              className="mt-3 text-sm"
+              style={{ color: "var(--color-danger-zone)" }}
+            >
+              {copyError}
+            </p>
+          )}
 
           {/* Next steps */}
           <div className="grid grid-cols-3 gap-2.5 mt-7">
@@ -158,7 +187,7 @@ export default function PublishedPage({ params }: { params: Promise<{ id: string
         <Toast text="link copied to clipboard" onDismiss={() => setShowToast(false)} />
       )}
       {showShare && (
-        <ShareModal url={survey.shareUrl} onClose={() => setShowShare(false)} />
+        <ShareModal url={shareUrl} onClose={() => setShowShare(false)} />
       )}
     </>
   );

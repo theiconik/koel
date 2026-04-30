@@ -31,6 +31,24 @@ class _UnknownSigningKey(Exception):
         super().__init__(kid)
 
 
+def _decode_options() -> dict:
+    return {"verify_aud": bool(settings.clerk_jwt_audience)}
+
+
+def _validate_authorized_party(payload: dict) -> None:
+    authorized_parties = settings.clerk_authorized_parties_list
+    if not authorized_parties:
+        return
+
+    authorized_party = payload.get("azp")
+    if authorized_party not in authorized_parties:
+        logger.warning("JWT rejected due to missing or invalid authorized party")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token authorized party",
+        )
+
+
 async def refresh_jwks() -> None:
     """Fetch and cache the Clerk JWKS.  Called from the app lifespan."""
     url = f"{settings.clerk_issuer}/.well-known/jwks.json"
@@ -56,9 +74,11 @@ def _decode(token: str) -> dict:
             token,
             key,
             algorithms=["RS256"],
-            options={"verify_aud": False},
+            audience=settings.clerk_jwt_audience or None,
+            options=_decode_options(),
             issuer=settings.clerk_issuer,
         )
+        _validate_authorized_party(payload)
         return payload
     except JWTError as exc:
         logger.warning("JWT decode failed: %s", exc)

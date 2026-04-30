@@ -86,6 +86,7 @@ export interface InsightMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  route?: InsightChatResponse["route"];
 }
 
 export interface InsightChatResponse {
@@ -102,15 +103,16 @@ export interface VoiceAgentSnapshot {
   elapsedSeconds: number;
   canInterrupt: boolean;
   conversationId?: string;
+  provider?: VoiceSessionStart["provider"];
   error?: string;
 }
 
 export interface VoiceAgentSession {
   getSnapshot: () => VoiceAgentSnapshot;
   subscribe: (listener: () => void) => () => void;
-  start: () => void;
+  start: () => void | Promise<void>;
   interrupt: () => void;
-  end: () => void;
+  end: () => void | Promise<void>;
   dispose: () => void;
 }
 

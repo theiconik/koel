@@ -66,7 +66,7 @@ export default function NewSurveyPage() {
         crumbs={<Crumbs items={[{ href: "/home", label: "HOME" }, "NEW"]} />}
         cta={
           <>
-            <Button variant="outline" disabled title="Preview is coming soon">
+            <Button variant="outline" disabled aria-disabled="true" title="Preview is not available yet">
               Preview
             </Button>
             <Button variant="primary" onClick={handlePublish} disabled={!title.trim() || saving}>
