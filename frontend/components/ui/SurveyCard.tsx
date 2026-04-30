@@ -9,9 +9,11 @@ interface SurveyCardProps {
 
 export default function SurveyCard({ survey, onClick }: SurveyCardProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      className="rounded-2xl p-[22px] border border-border bg-bg-raised shadow-sm cursor-pointer card-hover"
+      className="w-full rounded-2xl border border-border bg-bg-raised p-[22px] text-left shadow-sm cursor-pointer card-hover"
+      aria-label={`Open survey ${survey.title}`}
     >
       <div className="flex justify-between items-start gap-3">
         <div className="font-body font-semibold text-[17px] leading-snug text-midnight">
@@ -40,6 +42,6 @@ export default function SurveyCard({ survey, onClick }: SurveyCardProps) {
           </div>
         ))}
       </div>
-    </div>
+    </button>
   );
 }

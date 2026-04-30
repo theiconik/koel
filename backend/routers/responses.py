@@ -6,7 +6,7 @@ Respondents are not signed-in users; they access the survey via share link.
 POST /surveys/{survey_id}/responses
   Body: { conversation_id, respondent_name?, respondent_role?, is_anonymous }
   → Creates a response row with processing_status="pending"
-  → Kicks off the async processing pipeline in the background
+  → Enqueues durable response processing work in the database
   → Returns { id, status: "pending" } immediately
 
 GET /surveys/{survey_id}/responses
@@ -20,7 +20,7 @@ GET /surveys/{survey_id}/themes
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from auth.clerk import get_current_user
 from db.client import get_client
@@ -31,7 +31,13 @@ from db.schemas import (
     ThemeOut,
 )
 from services.elevenlabs import ElevenLabsError, fetch_conversation_audio
-from services.processing import process_response
+from services.response_jobs import (
+    PublicResponseSubmissionRejected,
+    ResponseProcessingRetryRejected,
+    create_public_response_with_processing_job,
+    create_response_with_processing_job,
+    requeue_response_processing_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,73 +105,11 @@ def _response_out(r: dict) -> ResponseOut:
     )
 
 
-def _validate_public_survey(db, short_id: str) -> dict:
-    survey_resp = (
-        db.table("surveys")
-        .select("id, status, response_cap, close_on_response_cap")
-        .eq("short_id", short_id)
-        .limit(1)
-        .execute()
-    )
-    survey = survey_resp.data[0] if survey_resp.data else None
-    if not survey:
-        logger.warning("Response rejected — survey short_id=%s not found", short_id)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
-    if survey["status"] != "live":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This survey is not accepting responses",
-        )
-
-    cap = survey.get("response_cap")
-    if cap is not None:
-        count_resp = (
-            db.table("responses")
-            .select("id", count="exact")
-            .eq("survey_id", survey["id"])
-            .execute()
-        )
-        count = count_resp.count or 0
-        if count >= cap:
-            if survey.get("close_on_response_cap"):
-                db.table("surveys").update({"status": "closed"}).eq("id", survey["id"]).execute()
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="This survey has reached its response cap",
-            )
-    return survey
-
-
 async def _insert_response(
     survey_id: str,
     body: ResponseSubmitRequest,
-    background_tasks: BackgroundTasks,
 ) -> ResponseSubmitAck:
-    db = get_client()
-    insert_resp = (
-        db.table("responses")
-        .insert(
-            {
-                "survey_id": survey_id,
-                "conversation_id": body.conversation_id,
-                "respondent_name": body.respondent_name,
-                "respondent_role": body.respondent_role,
-                "is_anonymous": body.is_anonymous,
-                "processing_status": "pending",
-            }
-        )
-        .execute()
-    )
-    response_row = insert_resp.data[0]
-    response_id = response_row["id"]
-
-    background_tasks.add_task(
-        process_response,
-        response_id=response_id,
-        survey_id=survey_id,
-        conversation_id=body.conversation_id,
-    )
-
+    response_id = create_response_with_processing_job(survey_id, body)
     return ResponseSubmitAck(id=response_id, status="pending")
 
 
@@ -179,24 +123,37 @@ async def _insert_response(
 async def submit_public_response(
     short_id: str,
     body: ResponseSubmitRequest,
-    background_tasks: BackgroundTasks,
 ):
-    db = get_client()
-    survey = _validate_public_survey(db, short_id)
-    ack = await _insert_response(survey["id"], body, background_tasks)
+    try:
+        response_id = create_public_response_with_processing_job(short_id, body)
+    except PublicResponseSubmissionRejected as exc:
+        if exc.reason == "survey_not_found":
+            logger.warning("Response rejected — survey short_id=%s not found", short_id)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Survey not found",
+            ) from exc
+        if exc.reason == "response_cap_reached":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This survey has reached its response cap",
+            ) from exc
+        if exc.reason == "anonymous_responses_not_allowed":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Anonymous responses are not allowed for this survey",
+            ) from exc
+        if exc.reason == "respondent_name_required":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Respondent name is required for this survey",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This survey is not accepting responses",
+        ) from exc
 
-    cap = survey.get("response_cap")
-    if cap is not None and survey.get("close_on_response_cap"):
-        count_resp = (
-            db.table("responses")
-            .select("id", count="exact")
-            .eq("survey_id", survey["id"])
-            .execute()
-        )
-        if (count_resp.count or 0) >= cap:
-            db.table("surveys").update({"status": "closed"}).eq("id", survey["id"]).execute()
-
-    return ack
+    return ResponseSubmitAck(id=response_id, status="pending")
 
 
 # ─── POST /surveys/{survey_id}/responses ─────────────────────────────────────
@@ -209,7 +166,6 @@ async def submit_public_response(
 async def submit_response(
     survey_id: UUID,
     body: ResponseSubmitRequest,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     sid = str(survey_id)
@@ -240,7 +196,7 @@ async def submit_response(
             detail="This survey is not accepting responses",
         )
 
-    return await _insert_response(sid, body, background_tasks)
+    return await _insert_response(sid, body)
 
 
 # ─── GET /surveys/{survey_id}/responses ──────────────────────────────────────
@@ -249,7 +205,6 @@ async def submit_response(
 async def retry_response_processing(
     survey_id: UUID,
     response_id: UUID,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     sid = str(survey_id)
@@ -259,7 +214,7 @@ async def retry_response_processing(
 
     resp = (
         db.table("responses")
-        .select("id, survey_id, conversation_id")
+        .select("id, survey_id, conversation_id, processing_status")
         .eq("id", rid)
         .eq("survey_id", sid)
         .limit(1)
@@ -273,16 +228,36 @@ async def retry_response_processing(
             status_code=status.HTTP_409_CONFLICT,
             detail="Response has no conversation id to retry",
         )
+    processing_status = response.get("processing_status") or "pending"
+    if processing_status != "failed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Only failed responses can be retried (current status: {processing_status})",
+        )
 
-    db.table("responses").update(
-        {"processing_status": "pending", "processing_error": None}
-    ).eq("id", rid).execute()
-    background_tasks.add_task(
-        process_response,
-        response_id=rid,
-        survey_id=sid,
-        conversation_id=response["conversation_id"],
-    )
+    try:
+        requeue_response_processing_job(rid)
+    except ResponseProcessingRetryRejected as exc:
+        if exc.reason == "response_not_found":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Response not found",
+            ) from exc
+        if exc.reason == "missing_conversation_id":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Response has no conversation id to retry",
+            ) from exc
+        if exc.reason == "active_processing_job":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Response already has an active processing job",
+            ) from exc
+        current_status = exc.current_status or "unknown"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Only failed responses can be retried (current status: {current_status})",
+        ) from exc
     return ResponseSubmitAck(id=rid, status="pending")
 
 

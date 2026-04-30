@@ -31,7 +31,9 @@ _BASE = "https://api.elevenlabs.io/v1"
 
 
 class ElevenLabsError(RuntimeError):
-    pass
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 async def create_signed_conversation_url() -> str:
@@ -55,11 +57,13 @@ async def create_signed_conversation_url() -> str:
 
     if not resp.is_success:
         logger.error(
-            "ElevenLabs signed URL error: status=%d body=%s",
+            "ElevenLabs signed URL error: status=%d",
             resp.status_code,
-            resp.text[:200],
         )
-        raise ElevenLabsError(f"Could not create signed ElevenLabs session ({resp.status_code})")
+        raise ElevenLabsError(
+            f"Could not create signed ElevenLabs session ({resp.status_code})",
+            status_code=resp.status_code,
+        )
 
     signed_url = resp.json().get("signed_url")
     if not signed_url:
@@ -84,14 +88,15 @@ async def fetch_conversation(conversation_id: str) -> dict:
 
     if resp.status_code == 404:
         logger.warning("ElevenLabs conversation %s not found (404)", conversation_id)
-        raise ElevenLabsError(f"Conversation {conversation_id!r} not found")
+        raise ElevenLabsError(f"Conversation {conversation_id!r} not found", status_code=404)
     if not resp.is_success:
         logger.error(
-            "ElevenLabs API error for conversation %s: status=%d body=%s",
-            conversation_id, resp.status_code, resp.text[:200],
+            "ElevenLabs API error for conversation %s: status=%d",
+            conversation_id, resp.status_code,
         )
         raise ElevenLabsError(
-            f"ElevenLabs API error {resp.status_code}: {resp.text}"
+            f"ElevenLabs API error {resp.status_code}",
+            status_code=resp.status_code,
         )
 
     data = resp.json()
@@ -145,18 +150,26 @@ async def fetch_conversation_audio(conversation_id: str) -> tuple[bytes, str]:
 
     if resp.status_code == 404:
         logger.warning("ElevenLabs audio for conversation %s not found (404)", conversation_id)
-        raise ElevenLabsError(f"Audio for conversation {conversation_id!r} not found")
+        raise ElevenLabsError(
+            f"Audio for conversation {conversation_id!r} not found",
+            status_code=404,
+        )
     if resp.status_code == 422:
         logger.warning("ElevenLabs audio for conversation %s is not available yet", conversation_id)
-        raise ElevenLabsError(f"Audio for conversation {conversation_id!r} is not available")
+        raise ElevenLabsError(
+            f"Audio for conversation {conversation_id!r} is not available",
+            status_code=422,
+        )
     if not resp.is_success:
         logger.error(
-            "ElevenLabs audio API error for conversation %s: status=%d body=%s",
+            "ElevenLabs audio API error for conversation %s: status=%d",
             conversation_id,
             resp.status_code,
-            resp.text[:200],
         )
-        raise ElevenLabsError(f"ElevenLabs audio API error {resp.status_code}: {resp.text}")
+        raise ElevenLabsError(
+            f"ElevenLabs audio API error {resp.status_code}",
+            status_code=resp.status_code,
+        )
 
     content_type = resp.headers.get("content-type") or "audio/mpeg"
     return resp.content, content_type

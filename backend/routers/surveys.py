@@ -14,6 +14,7 @@ import secrets
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 
 from auth.clerk import get_current_user
 from config.settings import settings
@@ -142,7 +143,7 @@ def _ensure_owner(db, survey_id: str, user_id: str) -> dict:
 # ─── GET /surveys ─────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[SurveyOut])
-async def list_surveys(user_id: str = Depends(get_current_user)):
+def list_surveys(user_id: str = Depends(get_current_user)):
     logger.debug("Listing surveys for user %s", user_id)
     db = get_client()
 
@@ -187,7 +188,7 @@ async def list_surveys(user_id: str = Depends(get_current_user)):
 # ─── public lookup/session endpoints ─────────────────────────────────────────
 
 @router.get("/share/{short_id}", response_model=SurveyOut)
-async def get_public_survey(short_id: str):
+def get_public_survey(short_id: str):
     logger.debug("Public survey lookup short_id=%s", short_id)
     db = get_client()
 
@@ -210,32 +211,36 @@ async def get_public_survey(short_id: str):
 @router.post("/share/{short_id}/voice-session", response_model=VoiceSessionOut)
 async def start_public_voice_session(short_id: str):
     logger.debug("Voice session requested short_id=%s", short_id)
-    db = get_client()
-    survey_resp = (
-        db.table("surveys")
-        .select("*")
-        .eq("short_id", short_id)
-        .limit(1)
-        .execute()
-    )
-    survey_row = survey_resp.data[0] if survey_resp.data else None
-    if not survey_row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
-    if survey_row["status"] != "live":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This survey is not accepting responses",
-        )
 
-    cap = survey_row.get("response_cap")
-    if cap is not None and _get_response_stats(db, survey_row["id"])["total"] >= cap:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This survey has reached its response cap",
+    def load_survey_context() -> tuple[dict, list[dict]]:
+        db = get_client()
+        survey_resp = (
+            db.table("surveys")
+            .select("*")
+            .eq("short_id", short_id)
+            .limit(1)
+            .execute()
         )
+        survey_row = survey_resp.data[0] if survey_resp.data else None
+        if not survey_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
+        if survey_row["status"] != "live":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This survey is not accepting responses",
+            )
 
-    questions_resp = _active_questions_query(db, survey_row["id"])
-    questions = questions_resp.data or []
+        cap = survey_row.get("response_cap")
+        if cap is not None and _get_response_stats(db, survey_row["id"])["total"] >= cap:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This survey has reached its response cap",
+            )
+
+        questions_resp = _active_questions_query(db, survey_row["id"])
+        return survey_row, questions_resp.data or []
+
+    survey_row, questions = await run_in_threadpool(load_survey_context)
     try:
         signed_url = await create_signed_conversation_url()
     except ElevenLabsError as exc:
@@ -267,7 +272,7 @@ async def start_public_voice_session(short_id: str):
 # ─── GET /surveys/{id} ────────────────────────────────────────────────────────
 
 @router.get("/{survey_id}", response_model=SurveyOut)
-async def get_survey(survey_id: UUID, user_id: str = Depends(get_current_user)):
+def get_survey(survey_id: UUID, user_id: str = Depends(get_current_user)):
     sid = str(survey_id)
     logger.debug("Fetching survey %s for user %s", sid, user_id)
     db = get_client()
@@ -284,7 +289,7 @@ async def get_survey(survey_id: UUID, user_id: str = Depends(get_current_user)):
 # ─── POST /surveys ────────────────────────────────────────────────────────────
 
 @router.post("", response_model=SurveyOut, status_code=status.HTTP_201_CREATED)
-async def create_survey(
+def create_survey(
     body: SurveyCreateRequest,
     user_id: str = Depends(get_current_user),
 ):
@@ -295,31 +300,28 @@ async def create_survey(
     # ~281 trillion possibilities; collision at 1M surveys ≈ 0.0000004%
     short_id = secrets.token_urlsafe(6)
 
-    survey_insert = (
-        db.table("surveys")
-        .insert(
-            {
-                "user_id": user_id,
-                "title": body.title,
-                "description": body.description,
-                "status": body.status,
-                "short_id": short_id,
-                **_settings_to_row(body.settings),
-            }
-        )
-        .execute()
-    )
-    survey_row = survey_insert.data[0]
+    created_resp = db.rpc(
+        "create_survey_with_questions",
+        {
+            "p_user_id": user_id,
+            "p_title": body.title,
+            "p_description": body.description,
+            "p_status": body.status,
+            "p_short_id": short_id,
+            **{
+                f"p_{key}": value
+                for key, value in _settings_to_row(body.settings).items()
+            },
+            "p_questions": [
+                {"text": q.text, "order": q.order}
+                for q in body.questions
+            ],
+        },
+    ).execute()
+    created_row = created_resp.data[0]
+    survey_row = created_row["survey"]
+    questions = created_row["questions"] or []
     survey_id = survey_row["id"]
-
-    questions: list[dict] = []
-    if body.questions:
-        q_rows = [
-            {"survey_id": survey_id, "text": q.text, "order": q.order}
-            for q in body.questions
-        ]
-        q_insert = db.table("questions").insert(q_rows).execute()
-        questions = q_insert.data or []
 
     logger.info(
         "Survey %s created (short_id=%s, %d question(s), status=%s)",
@@ -331,7 +333,7 @@ async def create_survey(
 # ─── PATCH /surveys/{id} ─────────────────────────────────────────────────────
 
 @router.patch("/{survey_id}", response_model=SurveyOut)
-async def update_survey(
+def update_survey(
     survey_id: UUID,
     body: SurveyUpdateRequest,
     user_id: str = Depends(get_current_user),
@@ -369,7 +371,7 @@ async def update_survey(
 # ─── PUT /surveys/{id}/questions ─────────────────────────────────────────────
 
 @router.put("/{survey_id}/questions", response_model=SurveyOut)
-async def update_questions(
+def update_questions(
     survey_id: UUID,
     body: QuestionsUpdateRequest,
     user_id: str = Depends(get_current_user),
@@ -384,14 +386,17 @@ async def update_questions(
     ]
 
     if survey_row["status"] == "draft":
-        db.table("questions").delete().eq("survey_id", sid).execute()
-        if next_questions:
-            db.table("questions").insert(
-                [
-                    {"survey_id": sid, "text": q["text"], "order": q["order"], "active": True}
+        db.rpc(
+            "replace_draft_survey_questions",
+            {
+                "p_survey_id": sid,
+                "p_user_id": user_id,
+                "p_questions": [
+                    {"text": q["text"], "order": q["order"]}
                     for q in next_questions
-                ]
-            ).execute()
+                ],
+            },
+        ).execute()
     else:
         current_resp = _active_questions_query(db, sid)
         current_by_id = {q["id"]: q for q in (current_resp.data or [])}

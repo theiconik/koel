@@ -157,8 +157,14 @@ async def index_response(response_id: str, survey_id: str) -> int:
             }
         )
 
-    db.table("response_chunks").delete().eq("response_id", response_id).execute()
-    db.table("response_chunks").insert(rows).execute()
+    db.rpc(
+        "replace_response_chunks",
+        {
+            "p_response_id": response_id,
+            "p_survey_id": survey_id,
+            "p_chunks": rows,
+        },
+    ).execute()
     logger.info("Indexed response %s into %d chunk(s)", response_id, len(rows))
     return len(rows)
 

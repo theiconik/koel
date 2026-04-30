@@ -1,19 +1,74 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Icon from "./Icon";
+import { logger } from "@/lib/observability/logger";
 
 interface ShareModalProps {
   url: string;
   onClose: () => void;
 }
 
+const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "textarea:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function getFocusableElements(root: HTMLElement) {
+  return Array.from(root.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
+  );
+}
+
 export default function ShareModal({ url, onClose }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  function copy() {
-    navigator.clipboard?.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus({ preventScroll: true });
+
+    return () => {
+      previouslyFocused?.focus({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => document.removeEventListener("keydown", handleDocumentKeyDown);
+  }, [onClose]);
+
+  async function copy() {
+    setCopyError(null);
+    setCopied(false);
+    if (!navigator.clipboard?.writeText) {
+      const error = new Error("Clipboard API is not available.");
+      logger.error("share_modal_copy_failed", { error, url });
+      setCopyError("Could not copy link. Select and copy it manually.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error("Clipboard write failed.");
+      logger.error("share_modal_copy_failed", { error: err, url });
+      setCopyError("Could not copy link. Select and copy it manually.");
+    }
   }
 
   const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
@@ -22,15 +77,57 @@ export default function ShareModal({ url, onClose }: ShareModalProps) {
 
   const liUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
 
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+
+    if (event.key !== "Tab" || !modalRef.current) return;
+
+    const focusable = getFocusableElements(modalRef.current);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      modalRef.current.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div
-      onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: "rgba(26,26,46,0.48)", animation: "fadeIn 160ms" }}
     >
+      <button
+        type="button"
+        aria-label="Close share modal"
+        tabIndex={-1}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ background: "transparent", border: "none" }}
+      />
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[480px] rounded-[20px] p-7 shadow-2xl"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-modal-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className="relative w-full max-w-[480px] rounded-[20px] p-7 shadow-2xl"
         style={{
           background: "var(--color-cream)",
           animation: "modalIn 200ms cubic-bezier(0.22,1,0.36,1)",
@@ -46,6 +143,7 @@ export default function ShareModal({ url, onClose }: ShareModalProps) {
               SHARE SURVEY
             </div>
             <div
+              id="share-modal-title"
               className="text-[26px] leading-[1.15] tracking-[-0.015em]"
               style={{ fontFamily: "var(--font-display)", color: "var(--color-midnight)" }}
             >
@@ -53,6 +151,8 @@ export default function ShareModal({ url, onClose }: ShareModalProps) {
             </div>
           </div>
           <button
+            ref={closeButtonRef}
+            type="button"
             onClick={onClose}
             className="mt-0.5 p-1 rounded-md transition-colors hover:bg-stone-100"
             style={{ background: "none", border: "none", color: "var(--color-fg3)", cursor: "pointer" }}
@@ -80,6 +180,7 @@ export default function ShareModal({ url, onClose }: ShareModalProps) {
             {url}
           </div>
           <button
+            type="button"
             onClick={copy}
             className="shrink-0 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-colors"
             style={{
@@ -93,6 +194,11 @@ export default function ShareModal({ url, onClose }: ShareModalProps) {
             {copied ? "copied" : "copy"}
           </button>
         </div>
+        {copyError && (
+          <p role="alert" className="mt-2 text-sm" style={{ color: "var(--color-danger-zone)" }}>
+            {copyError}
+          </p>
+        )}
 
         {/* Social platforms */}
         <div

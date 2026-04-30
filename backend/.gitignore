@@ -30,6 +30,7 @@ build/
 .coverage.*
 htmlcov/
 coverage.xml
+test-results.xml
 *.cover
 
 # ─── Type checking ───────────────────────────────────────────────────────────

@@ -1,8 +1,15 @@
 # Running Tests
 
-No tests exist yet. This file will be updated once tests are added.
+The frontend has focused unit/component coverage through Vitest and React Testing Library.
 
-For now, use these for basic correctness checks:
+Run the focused test suite from `frontend/`:
+
+```bash
+npm run test
+npm run test:coverage # emits coverage/lcov.info for SonarQube
+```
+
+Use these for broader correctness checks:
 
 ```bash
 npm run typecheck   # TypeScript type errors
