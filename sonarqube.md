@@ -23,6 +23,13 @@ For GitHub Actions, configure:
 `http://localhost:9000` SonarQube instance only works with a self-hosted runner
 running on the same machine or network.
 
+With GitHub CLI:
+
+```bash
+gh secret set SONAR_TOKEN -R theiconik/koel
+gh variable set SONAR_HOST_URL --body "https://sonarqube.example.com" -R theiconik/koel
+```
+
 ## Local Browser Dashboard
 
 Run SonarQube locally:
