@@ -7,11 +7,17 @@ This repo is configured for one SonarQube project that analyzes both apps:
 
 ## Required SonarQube Setup
 
-Create a SonarQube Server project with this key, or update
-`sonar-project.properties` to match the key you choose:
+Create or import a SonarQube Cloud project with this key, or update
+`sonar-project.properties` to match the key shown by SonarQube Cloud:
 
 ```text
-koel
+theiconik_koel
+```
+
+The SonarQube Cloud organization key is:
+
+```text
+theiconik
 ```
 
 For GitHub Actions, configure:
@@ -27,7 +33,7 @@ With GitHub CLI:
 
 ```bash
 gh secret set SONAR_TOKEN -R theiconik/koel
-gh variable set SONAR_HOST_URL --body "https://sonarqube.example.com" -R theiconik/koel
+gh variable set SONAR_HOST_URL --body "https://sonarcloud.io" -R theiconik/koel
 ```
 
 ## Local Browser Dashboard
